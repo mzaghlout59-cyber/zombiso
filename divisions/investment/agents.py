@@ -19,15 +19,6 @@ class NewsResearchAgent(BaseAgent):
         return {"symbol": task.get("symbol"), "sentiment": "neutral", "status": "stub"}
 
 
-class StrategyAgent(BaseAgent):
-    name = "Strategy"
-    division = "Investment"
-
-    def handle(self, task):
-        self.say(f"Building strategy for {task.get('symbol')}")
-        return {"symbol": task.get("symbol"), "signal": "hold", "status": "stub"}
-
-
 
 class PortfolioManagerAgent(BaseAgent):
     name = "PortfolioManager"
