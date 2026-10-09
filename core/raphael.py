@@ -1,0 +1,58 @@
+from core.logger import log
+from core.sage import Sage
+
+
+class Raphael:
+    """Brain / coordinator. Raphael thinks and executes, RiskManager guards."""
+
+    def __init__(self):
+        self.agents = {}
+        self.sage = Sage()
+
+    def register(self, agent):
+        self.agents[agent.name] = agent
+        log(f"RAPHAEL registered {agent.name} ({agent.division})")
+
+    def dispatch(self, agent_name, task):
+        if agent_name not in self.agents:
+            raise KeyError(f"No agent named {agent_name}")
+        log(f"RAPHAEL -> {agent_name}: {task}")
+        result = self.agents[agent_name].handle(task)
+        log(f"{agent_name} -> RAPHAEL: {result}")
+        return result
+
+    def roster(self):
+        for agent in self.agents.values():
+            print(f"{agent.division:12} | {agent.name}")
+
+    def run_goal(self, goal, task):
+        """Full flow: Sage plans, RAPHAEL executes, Sage recommends, RiskManager decides."""
+        print(f"\n=== GOAL: {goal} ===")
+
+        # 1. Sage plans
+        steps = self.sage.plan(goal)
+        print(f"Sage plan: {steps}")
+
+        # 2. RAPHAEL executes the plan
+        results = {}
+        for step in steps:
+            results[step] = self.dispatch(step, task)
+
+        # 3. Sage recommends
+        recommendation = self.sage.recommend(results)
+        print(f"Sage recommendation: {recommendation}")
+
+        # 4. RiskManager has the final, deterministic say
+        risk_task = {**task, "recommendation": recommendation}
+        risk = self.dispatch("RiskManager", risk_task)
+
+        approved = risk.get("approved", False) is True
+        decision = {
+            "goal": goal,
+            "recommendation": recommendation,
+            "risk": risk,
+            "executed": approved and recommendation["action"] != "hold",
+        }
+        log(f"RAPHAEL final decision: {decision}")
+        print(f"Final decision: {decision}")
+        return decision
