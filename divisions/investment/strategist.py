@@ -27,7 +27,6 @@ class StrategistAgent(BaseAgent):
         if not prices or len(prices) < self.LONG_WINDOW + 1:
             return self._hold(symbol, "not enough price data")
 
-        # Compare the averages now vs one step ago to detect a fresh crossover
         short_now = moving_average(prices, self.SHORT_WINDOW)
         long_now = moving_average(prices, self.LONG_WINDOW)
         short_prev = moving_average(prices[:-1], self.SHORT_WINDOW)

@@ -6,6 +6,7 @@ class Raphael:
     """The supreme brain. Raphael thinks and executes. Aegis guards. Master Mohamad commands."""
 
     RISK_AGENT = "Aegis"
+    ALIASES = {"Strategy": "Strategist"}
 
     def __init__(self):
         self.agents = {}
@@ -38,14 +39,15 @@ class Raphael:
         # 2. Raphael executes the plan
         results = {}
         for step in steps:
-            results[step] = self.dispatch(step, task)
+            results[step] = self.dispatch(self.ALIASES.get(step, step), task)
 
         # 3. Sage recommends
         recommendation = self.sage.recommend(results)
         print(f"Sage recommendation: {recommendation}")
 
         # 4. Aegis has the final, deterministic say
-        risk_task = {**task, "recommendation": recommendation}
+        trade = (results.get("Strategy") or {}).get("trade")
+        risk_task = {**task, "recommendation": recommendation, "trade": trade}
         risk = self.dispatch(self.RISK_AGENT, risk_task)
 
         approved = risk.get("approved", False) is True
