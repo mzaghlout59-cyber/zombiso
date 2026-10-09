@@ -3,7 +3,9 @@ from core.sage import Sage
 
 
 class Raphael:
-    """Brain / coordinator. Raphael thinks and executes, RiskManager guards."""
+    """The supreme brain. Raphael thinks and executes. Aegis guards. Master Mohamad commands."""
+
+    RISK_AGENT = "Aegis"
 
     def __init__(self):
         self.agents = {}
@@ -26,14 +28,14 @@ class Raphael:
             print(f"{agent.division:12} | {agent.name}")
 
     def run_goal(self, goal, task):
-        """Full flow: Sage plans, RAPHAEL executes, Sage recommends, RiskManager decides."""
+        """Full flow: Sage plans, Raphael executes, Sage recommends, Aegis decides."""
         print(f"\n=== GOAL: {goal} ===")
 
         # 1. Sage plans
         steps = self.sage.plan(goal)
         print(f"Sage plan: {steps}")
 
-        # 2. RAPHAEL executes the plan
+        # 2. Raphael executes the plan
         results = {}
         for step in steps:
             results[step] = self.dispatch(step, task)
@@ -42,9 +44,9 @@ class Raphael:
         recommendation = self.sage.recommend(results)
         print(f"Sage recommendation: {recommendation}")
 
-        # 4. RiskManager has the final, deterministic say
+        # 4. Aegis has the final, deterministic say
         risk_task = {**task, "recommendation": recommendation}
-        risk = self.dispatch("RiskManager", risk_task)
+        risk = self.dispatch(self.RISK_AGENT, risk_task)
 
         approved = risk.get("approved", False) is True
         decision = {

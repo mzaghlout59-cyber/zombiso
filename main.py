@@ -4,10 +4,10 @@ from divisions.investment.agents import (
     MarketResearchAgent,
     NewsResearchAgent,
     StrategyAgent,
-    RiskManagerAgent,
     PortfolioManagerAgent,
     PerformanceAnalystAgent,
 )
+from divisions.investment.aegis import AegisAgent
 
 print(f"=== {settings.PROJECT_NAME} | mode: {settings.TRADING_MODE} ===")
 
@@ -16,7 +16,7 @@ for agent_class in [
     MarketResearchAgent,
     NewsResearchAgent,
     StrategyAgent,
-    RiskManagerAgent,
+    AegisAgent,
     PortfolioManagerAgent,
     PerformanceAnalystAgent,
 ]:

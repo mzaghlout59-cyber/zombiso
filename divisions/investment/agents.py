@@ -28,15 +28,6 @@ class StrategyAgent(BaseAgent):
         return {"symbol": task.get("symbol"), "signal": "hold", "status": "stub"}
 
 
-class RiskManagerAgent(BaseAgent):
-    name = "RiskManager"
-    division = "Investment"
-
-    def handle(self, task):
-        self.say(f"Checking risk for {task.get('symbol')}")
-        # Default deny: nothing is approved until real rules are implemented
-        return {"symbol": task.get("symbol"), "approved": False, "reason": "stub: default deny", "status": "stub"}
-
 
 class PortfolioManagerAgent(BaseAgent):
     name = "PortfolioManager"
