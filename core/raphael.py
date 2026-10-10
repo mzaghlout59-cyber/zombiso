@@ -1,4 +1,5 @@
 from core.logger import log
+from core.ledger import PaperLedger
 from core.sage import Sage
 
 
@@ -8,9 +9,10 @@ class Raphael:
     RISK_AGENT = "Aegis"
     ALIASES = {"Strategy": "Strategist"}
 
-    def __init__(self):
+    def __init__(self, ledger=None):
         self.agents = {}
         self.sage = Sage()
+        self.ledger = ledger or PaperLedger()
 
     def register(self, agent):
         self.agents[agent.name] = agent
@@ -48,14 +50,27 @@ class Raphael:
         # 4. Aegis has the final, deterministic say
         trade = (results.get("Strategy") or {}).get("trade")
         risk_task = {**task, "recommendation": recommendation, "trade": trade}
+        aegis = self.agents[self.RISK_AGENT]
+        aegis.open_positions = self.ledger.open_positions()
+        aegis.daily_pnl = self.ledger.daily_pnl()
         risk = self.dispatch(self.RISK_AGENT, risk_task)
 
         approved = risk.get("approved", False) is True
+        executed = approved and recommendation["action"] != "hold"
+        if executed and trade:
+            record = self.ledger.open_trade(
+                symbol=task.get("symbol"),
+                side=trade.get("side", "buy"),
+                size=trade["size"],
+                entry=trade["entry"],
+                stop_loss=trade["stop_loss"],
+            )
+            log(f"RAPHAEL recorded paper trade #{record['id']} in ledger")
         decision = {
             "goal": goal,
             "recommendation": recommendation,
             "risk": risk,
-            "executed": approved and recommendation["action"] != "hold",
+            "executed": executed,
         }
         log(f"RAPHAEL final decision: {decision}")
         print(f"Final decision: {decision}")
