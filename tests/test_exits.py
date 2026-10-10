@@ -44,7 +44,7 @@ def test_raphael_closes_trades():
         # stop hit: closed at a loss
         closed = r.check_exits({"AAPL": 102.5})
         assert len(closed) == 1
-        assert closed<a href="" class="citation-link" target="_blank" style="vertical-align: super; font-size: 0.8em; margin-left: 3px;">[0]</a>["exit_reason"] == "stop_loss"
+        assert closed[0]["exit_reason"] == "stop_loss"
         assert ledger.open_positions() == 0
         assert ledger.daily_pnl() < 0
         print(f"PASS: Raphael closed a stopped trade, pnl={ledger.daily_pnl():.2f}")
