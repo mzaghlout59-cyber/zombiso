@@ -1,11 +1,21 @@
+from core.base_agent import BaseAgent
 from core.logger import log
 
 
-class Sage:
+class Sage(BaseAgent):
     """The thinking layer. Proposes plans and recommendations.
     It can never place a trade or override the Risk Manager."""
 
     name = "Sage"
+    alias = "Sage"
+    division = "Investment"
+    rank = "Commander"
+    commander = "Raphael"
+    purpose = "Thinker and planner: decides which agents run and weighs their results into a recommendation."
+
+    def handle(self, task):
+        """Sage works through plan() and recommend(); handle() is not used directly."""
+        raise NotImplementedError("Sage uses plan() and recommend(), not handle()")
 
     def plan(self, goal):
         """Decide which agents to run, in order, for a goal."""

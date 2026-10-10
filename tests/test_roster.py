@@ -7,12 +7,13 @@ from divisions.investment.agents import (
 )
 from divisions.investment.strategist import StrategistAgent
 from divisions.investment.aegis import AegisAgent
+from core.sage import Sage
 
 ALL_AGENTS = [
     MarketResearchAgent, NewsResearchAgent, StrategistAgent, AegisAgent,
-    PortfolioManagerAgent, PerformanceAnalystAgent,
+    PortfolioManagerAgent, PerformanceAnalystAgent, Sage,
 ]
-# Sage is intentionally excluded for now: it does not inherit BaseAgent yet.
+# Sage now inherits BaseAgent and is part of the roster.
 
 
 def test_every_agent_has_a_purpose():
