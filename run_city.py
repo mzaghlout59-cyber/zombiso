@@ -12,6 +12,8 @@ from divisions.investment.agents import (
     NewsResearchAgent,
     PortfolioManagerAgent,
     PerformanceAnalystAgent,
+    SentimentAgent,
+    ChartsAgent,
 )
 from divisions.investment.strategist import StrategistAgent
 from divisions.investment.aegis import AegisAgent
@@ -30,6 +32,8 @@ def build_city(ledger=None):
         AegisAgent,
         PortfolioManagerAgent,
         PerformanceAnalystAgent,
+        SentimentAgent,
+        ChartsAgent,
     ]:
         raphael.register(agent_class())
     return raphael

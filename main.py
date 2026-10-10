@@ -5,6 +5,8 @@ from divisions.investment.agents import (
     NewsResearchAgent,
     PortfolioManagerAgent,
     PerformanceAnalystAgent,
+    SentimentAgent,
+    ChartsAgent,
 )
 from divisions.investment.strategist import StrategistAgent
 from divisions.investment.aegis import AegisAgent
@@ -19,6 +21,8 @@ for agent_class in [
     AegisAgent,
     PortfolioManagerAgent,
     PerformanceAnalystAgent,
+    SentimentAgent,
+    ChartsAgent,
 ]:
     raphael.register(agent_class())
 

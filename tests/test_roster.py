@@ -4,14 +4,17 @@ from divisions.investment.agents import (
     NewsResearchAgent,
     PortfolioManagerAgent,
     PerformanceAnalystAgent,
+    SentimentAgent,
+    ChartsAgent,
 )
 from divisions.investment.strategist import StrategistAgent
 from divisions.investment.aegis import AegisAgent
 from core.sage import Sage
 
 ALL_AGENTS = [
-    MarketResearchAgent, NewsResearchAgent, StrategistAgent, AegisAgent,
-    PortfolioManagerAgent, PerformanceAnalystAgent, Sage,
+    MarketResearchAgent, NewsResearchAgent, SentimentAgent, ChartsAgent,
+    StrategistAgent, AegisAgent, PortfolioManagerAgent,
+    PerformanceAnalystAgent, Sage,
 ]
 # Sage now inherits BaseAgent and is part of the roster.
 

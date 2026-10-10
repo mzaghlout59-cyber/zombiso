@@ -4,11 +4,15 @@ from divisions.investment.agents import (
     PortfolioManagerAgent,
     PerformanceAnalystAgent,
     ScoutAgent,
+    SentimentAgent,
+    ChartsAgent,
 )
 
 EXPECTED = [
     (MarketResearchAgent, "Scout", "Sage"),
     (NewsResearchAgent, "News", "Sage"),
+    (SentimentAgent, "Pulse", "Sage"),
+    (ChartsAgent, "Lens", "Sage"),
     (PortfolioManagerAgent, "Ledgerkeeper", "Aegis"),
     (PerformanceAnalystAgent, "Scorekeeper", "Aegis"),
 ]

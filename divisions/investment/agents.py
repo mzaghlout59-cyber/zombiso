@@ -54,3 +54,29 @@ class PerformanceAnalystAgent(BaseAgent):
     def handle(self, task):
         self.say("Analysing performance")
         return {"pnl": 0, "status": "stub"}
+
+
+class SentimentAgent(BaseAgent):
+    name = "Sentiment"
+    alias = "Pulse"
+    division = "Investment"
+    rank = "Squad"
+    commander = "Sage"
+    purpose = "Reads the crowd: social and market mood around a symbol."
+
+    def handle(self, task):
+        self.say(f"Reading crowd sentiment for {task.get('symbol')}")
+        return {"symbol": task.get("symbol"), "crowd_mood": "neutral", "status": "stub"}
+
+
+class ChartsAgent(BaseAgent):
+    name = "Charts"
+    alias = "Lens"
+    division = "Investment"
+    rank = "Squad"
+    commander = "Sage"
+    purpose = "Reads price structure: support, resistance and chart patterns."
+
+    def handle(self, task):
+        self.say(f"Reading charts for {task.get('symbol')}")
+        return {"symbol": task.get("symbol"), "pattern": "none", "status": "stub"}
