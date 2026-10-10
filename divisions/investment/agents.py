@@ -36,7 +36,8 @@ class MarketResearchAgent(BaseAgent):
         return {"symbol": task.get("symbol"), "trend": trend, "status": "simulated"}
 
 
-ScoutAgent = MarketResearchAgent  # codename alias; old name keeps working
+# codename alias; old name keeps working
+ScoutAgent = MarketResearchAgent
 
 
 class NewsResearchAgent(BaseAgent):
