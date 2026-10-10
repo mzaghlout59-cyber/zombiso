@@ -46,6 +46,21 @@ class Raphael:
                 closed.append({**record, "exit_reason": reason})
         return closed
 
+    def tick(self, feed):
+        """One market step: read current prices for open positions, run exits.
+
+        feed is any PriceFeed. Symbols the feed cannot price are skipped safely.
+        Returns the list of trades closed this tick.
+        """
+        prices = {}
+        for trade in self.ledger.open_trades():
+            sym = trade["symbol"]
+            try:
+                prices[sym] = feed.get_price(sym)
+            except KeyError:
+                log(f"RAPHAEL tick: no price for {sym}, skipping")
+        return self.check_exits(prices)
+
     def roster(self):
         for agent in self.agents.values():
             print(f"{agent.division:12} | {agent.name}")
