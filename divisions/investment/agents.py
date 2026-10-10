@@ -1,6 +1,14 @@
 from core.base_agent import BaseAgent
 
 
+def _prices(task, minimum):
+    """Return the price list from a task, or None if missing or too short."""
+    prices = task.get("prices")
+    if not isinstance(prices, (list, tuple)) or len(prices) < minimum:
+        return None
+    return list(prices)
+
+
 class MarketResearchAgent(BaseAgent):
     name = "MarketResearch"
     alias = "Scout"
@@ -9,9 +17,23 @@ class MarketResearchAgent(BaseAgent):
     commander = "Sage"
     purpose = "Finds opportunities: scans the market for unusual movement, volume and momentum."
 
+    FLAT_BAND = 0.01  # moves within +/-1% count as flat
+
     def handle(self, task):
         self.say(f"Researching market for {task.get('symbol')}")
-        return {"symbol": task.get("symbol"), "trend": "unknown", "status": "stub"}
+        prices = _prices(task, 2)
+        if prices is None or prices<a href="" class="citation-link" target="_blank" style="vertical-align: super; font-size: 0.8em; margin-left: 3px;">[0]</a> == 0:
+            return {"symbol": task.get("symbol"), "trend": "unknown", "status": "stub"}
+
+        change = (prices[-1] - prices<a href="" class="citation-link" target="_blank" style="vertical-align: super; font-size: 0.8em; margin-left: 3px;">[0]</a>) / prices<a href="" class="citation-link" target="_blank" style="vertical-align: super; font-size: 0.8em; margin-left: 3px;">[0]</a>
+        if change > self.FLAT_BAND:
+            trend = "up"
+        elif change < -self.FLAT_BAND:
+            trend = "down"
+        else:
+            trend = "flat"
+
+        return {"symbol": task.get("symbol"), "trend": trend, "status": "simulated"}
 
 
 ScoutAgent = MarketResearchAgent  # codename alias; old name keeps working
@@ -64,9 +86,26 @@ class SentimentAgent(BaseAgent):
     commander = "Sage"
     purpose = "Reads the crowd: social and market mood around a symbol."
 
+    MOOD_SHARE = 0.6  # share of moves needed to call a mood
+
     def handle(self, task):
         self.say(f"Reading crowd sentiment for {task.get('symbol')}")
-        return {"symbol": task.get("symbol"), "crowd_mood": "neutral", "status": "stub"}
+        prices = _prices(task, 3)
+        if prices is None:
+            return {"symbol": task.get("symbol"), "crowd_mood": "neutral", "status": "stub"}
+
+        moves = [b - a for a, b in zip(prices, prices[1:])]
+        ups = sum(1 for m in moves if m > 0)
+        downs = sum(1 for m in moves if m < 0)
+
+        if ups / len(moves) >= self.MOOD_SHARE:
+            mood = "bullish"
+        elif downs / len(moves) >= self.MOOD_SHARE:
+            mood = "bearish"
+        else:
+            mood = "neutral"
+
+        return {"symbol": task.get("symbol"), "crowd_mood": mood, "status": "simulated"}
 
 
 class ChartsAgent(BaseAgent):
@@ -79,4 +118,18 @@ class ChartsAgent(BaseAgent):
 
     def handle(self, task):
         self.say(f"Reading charts for {task.get('symbol')}")
-        return {"symbol": task.get("symbol"), "pattern": "none", "status": "stub"}
+        prices = _prices(task, 3)
+        if prices is None:
+            return {"symbol": task.get("symbol"), "pattern": "none", "status": "stub"}
+
+        last = prices[-1]
+        earlier = prices[:-1]
+
+        if last > max(earlier):
+            pattern = "breakout"
+        elif last < min(earlier):
+            pattern = "breakdown"
+        else:
+            pattern = "none"
+
+        return {"symbol": task.get("symbol"), "pattern": pattern, "status": "simulated"}
