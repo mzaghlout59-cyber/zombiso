@@ -11,6 +11,10 @@ class AegisAgent(BaseAgent):
 
     name = "Aegis"
     division = "Investment"
+    rank = "Commander"
+    commander = "Raphael"
+    alias = "Shield"
+    purpose = "Risk manager: default-deny veto over every trade; a trade passes only if every rule passes."
 
     def __init__(self):
         self.open_positions = 0

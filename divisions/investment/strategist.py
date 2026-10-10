@@ -13,6 +13,10 @@ class StrategistAgent(BaseAgent):
     """
 
     name = "Strategist"
+    alias = "Axiom"
+    rank = "Commander"
+    commander = "Raphael"
+    purpose = "Strategist: turns prices into a concrete trade proposal; proposes only, Aegis decides."
     division = "Investment"
 
     SHORT_WINDOW = 3
