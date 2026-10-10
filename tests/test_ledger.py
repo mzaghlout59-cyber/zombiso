@@ -49,7 +49,7 @@ def test_open_trades_public_method():
         ledger.close_trade(1, 110.0)
         remaining = ledger.open_trades()
         assert len(remaining) == 1
-        assert remaining<a href="" class="citation-link" target="_blank" style="vertical-align: super; font-size: 0.8em; margin-left: 3px;">[0]</a>["symbol"] == "MSFT"
+        assert remaining[0]["symbol"] == "MSFT"
         print("PASS: ledger.open_trades() returns only open trades")
 
 
