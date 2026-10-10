@@ -33,3 +33,24 @@ def run():
 
 if __name__ == "__main__":
     run()
+
+
+def test_open_trades_public_method():
+    import tempfile
+    from pathlib import Path
+    from core.ledger import PaperLedger
+
+    with tempfile.TemporaryDirectory() as tmp:
+        ledger = PaperLedger(Path(tmp) / "t.json")
+        assert ledger.open_trades() == []
+        ledger.open_trade("AAPL", "buy", 11, 105.0, 102.9)
+        ledger.open_trade("MSFT", "buy", 5, 200.0, 196.0)
+        assert len(ledger.open_trades()) == 2
+        ledger.close_trade(1, 110.0)
+        remaining = ledger.open_trades()
+        assert len(remaining) == 1
+        assert remaining<a href="" class="citation-link" target="_blank" style="vertical-align: super; font-size: 0.8em; margin-left: 3px;">[0]</a>["symbol"] == "MSFT"
+        print("PASS: ledger.open_trades() returns only open trades")
+
+
+test_open_trades_public_method()

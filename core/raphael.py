@@ -34,9 +34,7 @@ class Raphael:
         Returns a list of closed-trade records.
         """
         closed = []
-        for trade in self.ledger._load():
-            if trade["status"] != "open":
-                continue
+        for trade in self.ledger.open_trades():
             price = prices.get(trade["symbol"])
             if price is None:
                 continue

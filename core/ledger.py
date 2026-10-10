@@ -61,6 +61,10 @@ class PaperLedger:
         """Symbols that currently have an open position."""
         return {t["symbol"] for t in self._load() if t["status"] == "open"}
 
+    def open_trades(self):
+        """Return a list of all currently open paper trades."""
+        return [t for t in self._load() if t["status"] == "open"]
+
     def open_positions(self) -> int:
         return sum(1 for t in self.trades if t["status"] == "open")
 
