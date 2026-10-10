@@ -36,7 +36,6 @@ class MarketResearchAgent(BaseAgent):
         return {"symbol": task.get("symbol"), "trend": trend, "status": "simulated"}
 
 
-# codename alias; old name keeps working
 ScoutAgent = MarketResearchAgent
 
 
@@ -87,7 +86,7 @@ class SentimentAgent(BaseAgent):
     commander = "Sage"
     purpose = "Reads the crowd: social and market mood around a symbol."
 
-    MOOD_SHARE = 0.6  # share of moves needed to call a mood
+    MOOD_SHARE = 0.6
 
     def handle(self, task):
         self.say(f"Reading crowd sentiment for {task.get('symbol')}")
@@ -134,3 +133,4 @@ class ChartsAgent(BaseAgent):
             pattern = "none"
 
         return {"symbol": task.get("symbol"), "pattern": pattern, "status": "simulated"}
+
