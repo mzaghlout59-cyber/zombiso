@@ -57,6 +57,10 @@ class PaperLedger:
         raise ValueError(f"No open trade with id {trade_id}")
 
     # ---------- numbers Aegis needs ----------
+    def open_symbols(self) -> set:
+        """Symbols that currently have an open position."""
+        return {t["symbol"] for t in self._load() if t["status"] == "open"}
+
     def open_positions(self) -> int:
         return sum(1 for t in self.trades if t["status"] == "open")
 

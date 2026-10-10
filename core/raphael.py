@@ -53,6 +53,7 @@ class Raphael:
         aegis = self.agents[self.RISK_AGENT]
         aegis.open_positions = self.ledger.open_positions()
         aegis.daily_pnl = self.ledger.daily_pnl()
+        aegis.open_symbols = self.ledger.open_symbols()
         risk = self.dispatch(self.RISK_AGENT, risk_task)
 
         approved = risk.get("approved", False) is True

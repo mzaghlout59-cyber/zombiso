@@ -49,5 +49,34 @@ def run():
     print("PASS: ledger + Aegis integration (Rules 1 and 2 are live)")
 
 
+
+def run_duplicate_symbol():
+    with tempfile.TemporaryDirectory() as tmp:
+        r, ledger = make_raphael(tmp)
+        aegis = r.agents["Aegis"]
+        trade = {"entry": 105.0, "stop_loss": 102.90, "size": 11, "side": "buy"}
+
+        # AAPL open -> a second AAPL must be DENIED
+        ledger.open_trade("AAPL", "buy", 11, 105.0, 102.90)
+        aegis.open_positions = r.ledger.open_positions()
+        aegis.daily_pnl = r.ledger.daily_pnl()
+        aegis.open_symbols = r.ledger.open_symbols()
+        decision = aegis.evaluate("AAPL", trade)
+        assert decision["approved"] is False
+        assert "already holding" in decision["reason"]
+
+        # a DIFFERENT symbol is still allowed
+        assert aegis.evaluate("MSFT", trade)["approved"] is True
+
+        # after AAPL closes, AAPL is allowed again
+        ledger.close_trade(1, 106.0)
+        aegis.open_positions = r.ledger.open_positions()
+        aegis.open_symbols = r.ledger.open_symbols()
+        assert aegis.evaluate("AAPL", trade)["approved"] is True
+
+    print("PASS: duplicate-symbol rule (no stacking)")
+
+
 if __name__ == "__main__":
     run()
+    run_duplicate_symbol()

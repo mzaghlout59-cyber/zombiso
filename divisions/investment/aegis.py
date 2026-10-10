@@ -15,6 +15,7 @@ class AegisAgent(BaseAgent):
     def __init__(self):
         self.open_positions = 0
         self.daily_pnl = 0.0  # realized P&L today, in USD (negative = loss)
+        self.open_symbols = set()  # symbols already held
 
     def handle(self, task):
         symbol = task.get("symbol")
@@ -40,6 +41,10 @@ class AegisAgent(BaseAgent):
         # Rule 2: position cap
         if self.open_positions >= settings.MAX_OPEN_POSITIONS:
             return self._deny(symbol, f"max open positions reached ({self.open_positions}/{settings.MAX_OPEN_POSITIONS})")
+
+        # Rule 2b: no stacking. One open position per symbol.
+        if symbol in self.open_symbols:
+            return self._deny(symbol, f"already holding an open position in {symbol}")
 
         # Rule 3: stop-loss required and valid
         entry = trade.get("entry")
