@@ -1,4 +1,5 @@
 from core.logger import log
+from core.exits import exit_signal
 from core.ledger import PaperLedger
 from core.sage import Sage
 
@@ -25,6 +26,27 @@ class Raphael:
         result = self.agents[agent_name].handle(task)
         log(f"{agent_name} -> RAPHAEL: {result}")
         return result
+
+    def check_exits(self, prices):
+        """Close any open paper trade whose price hit its stop or target.
+
+        prices = {"AAPL": 102.5, ...}. Symbols with no price are skipped.
+        Returns a list of closed-trade records.
+        """
+        closed = []
+        for trade in self.ledger._load():
+            if trade["status"] != "open":
+                continue
+            price = prices.get(trade["symbol"])
+            if price is None:
+                continue
+            reason = exit_signal(trade, price)
+            if reason:
+                record = self.ledger.close_trade(trade["id"], price)
+                log(f"RAPHAEL closed trade #{trade['id']} {trade['symbol']} "
+                    f"at {price} ({reason}) pnl={record['pnl']}")
+                closed.append({**record, "exit_reason": reason})
+        return closed
 
     def roster(self):
         for agent in self.agents.values():

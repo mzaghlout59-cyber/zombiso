@@ -31,3 +31,6 @@ MAX_RISK_PER_TRADE_PCT = 0.25     # % of account risked per trade
 MAX_DAILY_LOSS_PCT = 1.0          # % of account, then Aegis halts trading for the day
 MAX_OPEN_POSITIONS = 3
 REQUIRE_STOP_LOSS = True
+
+# Exits: take profit at this multiple of the stop distance (reward:risk)
+TAKE_PROFIT_RR = 2.0
