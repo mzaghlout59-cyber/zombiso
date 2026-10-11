@@ -43,8 +43,8 @@ def make_handler(fixed_run=None):
             return super().translate_path(path)
 
         def end_headers(self):
-            if self.path.startswith("/run/"):
-                self.send_header("Cache-Control", "no-store")
+            # run files change while a run is live; viewer files change on every update
+            self.send_header("Cache-Control", "no-store")
             super().end_headers()
 
         def log_message(self, fmt, *args):

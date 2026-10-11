@@ -1,3 +1,4 @@
+from config import settings
 from core.base_agent import BaseAgent
 
 
@@ -60,8 +61,21 @@ class PortfolioManagerAgent(BaseAgent):
     purpose = "Turns the ledger into an exposure report: open positions and capital at risk."
 
     def handle(self, task):
+        """task = {"trades": [ledger trade dicts]}. Reports on the open ones."""
         self.say("Reviewing portfolio")
-        return {"positions": 0, "status": "stub"}
+        open_trades = [t for t in task.get("trades", []) if t["status"] == "open"]
+        exposure = sum(t["entry"] * t["size"] for t in open_trades)
+        at_risk = sum(abs(t["entry"] - t["stop_loss"]) * t["size"] for t in open_trades)
+        account = settings.ACCOUNT_SIZE
+        return {
+            "positions": len(open_trades),
+            "symbols": sorted(t["symbol"] for t in open_trades),
+            "exposure": round(exposure, 2),
+            "exposure_pct": round(exposure / account * 100, 2),
+            "at_risk": round(at_risk, 2),
+            "at_risk_pct": round(at_risk / account * 100, 3),
+            "status": "active",
+        }
 
 
 class PerformanceAnalystAgent(BaseAgent):
@@ -73,8 +87,33 @@ class PerformanceAnalystAgent(BaseAgent):
     purpose = "Scores closed trades: win rate and loss streaks, which the ledger alone does not give."
 
     def handle(self, task):
+        """task = {"trades": [ledger trade dicts]}. Scores the closed ones, oldest first."""
         self.say("Analysing performance")
-        return {"pnl": 0, "status": "stub"}
+        closed = sorted((t for t in task.get("trades", []) if t["status"] == "closed"),
+                        key=lambda t: t["id"])
+        pnls = [t["pnl"] for t in closed]
+        wins = [p for p in pnls if p > 0]
+        losses = [p for p in pnls if p <= 0]
+
+        streak = max_streak = 0
+        for p in pnls:
+            streak = streak + 1 if p <= 0 else 0
+            max_streak = max(max_streak, streak)
+
+        gross_loss = -sum(losses)
+        return {
+            "closed": len(pnls),
+            "pnl": round(sum(pnls), 2),
+            "wins": len(wins),
+            "losses": len(losses),
+            "win_rate": round(len(wins) / len(pnls), 3) if pnls else None,
+            "avg_win": round(sum(wins) / len(wins), 2) if wins else None,
+            "avg_loss": round(sum(losses) / len(losses), 2) if losses else None,
+            "profit_factor": round(sum(wins) / gross_loss, 2) if gross_loss > 0 else None,
+            "loss_streak": streak,
+            "max_loss_streak": max_streak,
+            "status": "active",
+        }
 
 
 class SentimentAgent(BaseAgent):

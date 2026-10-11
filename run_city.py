@@ -138,6 +138,9 @@ def run_city(feed, cycles=CYCLES, watchlist=None, raphael=None, window=WINDOW, t
                 opened += 1
                 print(f"[cycle {cycle}] OPENED {sym}")
 
+        # 3. Aegis's squad reports on the books
+        raphael.review()
+
         if tick_delay and cycle < cycles:
             # sleep to the next scheduled cycle, so slow cycles don't drift the schedule
             time.sleep(max(0.0, started + cycle * tick_delay - time.monotonic()))
@@ -146,6 +149,7 @@ def run_city(feed, cycles=CYCLES, watchlist=None, raphael=None, window=WINDOW, t
         for t in raphael.close_all(feed):
             closed += 1
             print(f"[close] CLOSED {t['symbol']} (end of day) pnl={t['pnl']}")
+        raphael.review()
 
     print(f"\n=== RUN COMPLETE: {cycles} cycles, {raphael.clock.day + 1} day(s) "
           f"| opened={opened} closed={closed} "

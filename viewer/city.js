@@ -28,15 +28,17 @@
     Axiom:        { x: 640,  y: 95,  w: 150, h: 56, title: "Axiom", sub: "strategist", kind: "commander" },
     Raphael:      { x: 640,  y: 245, w: 180, h: 92, title: "Raphael", sub: "headquarters", kind: "hq" },
     Aegis:        { x: 930,  y: 245, w: 130, h: 92, title: "Aegis", sub: "risk gate", kind: "gate" },
-    Ledgerkeeper: { x: 870,  y: 95,  w: 110, h: 52, title: "Ledgerkeeper", sub: "idle", kind: "squad", idle: true },
-    Scorekeeper:  { x: 995,  y: 95,  w: 110, h: 52, title: "Scorekeeper", sub: "idle", kind: "squad", idle: true },
+    Ledgerkeeper: { x: 870,  y: 95,  w: 110, h: 52, title: "Ledgerkeeper", sub: "exposure", kind: "squad" },
+    Scorekeeper:  { x: 995,  y: 95,  w: 110, h: 52, title: "Scorekeeper", sub: "win rate", kind: "squad" },
     Ultron:       { x: 1125, y: 200, w: 70,  h: 170, title: "Ultron", sub: "auditor", kind: "tower" },
   };
   const AGENT_ALIAS = {
     MarketResearch: "Scout", NewsResearch: "News", Sentiment: "Pulse",
     Charts: "Lens", Strategist: "Axiom", Aegis: "Aegis",
+    PortfolioManager: "Ledgerkeeper", PerformanceAnalyst: "Scorekeeper",
   };
-  const ROUTE = { Scout: "Sage", News: "Sage", Pulse: "Sage", Lens: "Sage", Axiom: "Raphael" };
+  const ROUTE = { Scout: "Sage", News: "Sage", Pulse: "Sage", Lens: "Sage", Axiom: "Raphael",
+                  Ledgerkeeper: "Aegis", Scorekeeper: "Aegis" };
   const READING = { Scout: "trend", News: "sentiment", Pulse: "crowd_mood", Lens: "pattern", Axiom: "signal" };
   const VOTE_COLOR = {
     up: C.green, bullish: C.green, breakout: C.green, positive: C.green, buy: C.gold,
@@ -89,7 +91,7 @@
     const prices = {};
     (meta.watchlist || []).forEach((s) => (prices[s] = []));
     return { tick: 0, day: 0, prices, open: {}, realized: 0, dayPnl: {}, trades: 0,
-             wins: 0, losses: 0, decisions: {}, feed: [], seenDay: -1 };
+             wins: 0, losses: 0, decisions: {}, feed: [], seenDay: -1, book: null, score: null };
   }
 
   const money = (v) => (v < 0 ? "-$" : "$") + Math.abs(v).toFixed(2);
@@ -103,6 +105,10 @@
   // ---------- state: pure replay of one event ----------
   function apply(e, s) {
     switch (e.kind) {
+      case "agent_report":
+        if (e.agent === "PortfolioManager") s.book = e.result;
+        if (e.agent === "PerformanceAnalyst") s.score = e.result;
+        break;
       case "tick":
         s.tick = e.tick;
         if (e.day !== s.seenDay) { pushFeed(s, e.tick, `Day ${e.day + 1} begins`, "day"); s.seenDay = e.day; }
@@ -153,8 +159,11 @@
     if (e.kind === "agent_report") {
       const who = AGENT_ALIAS[e.agent]; if (!who) return;
       if (who === "Aegis") { glow("Aegis", e.result && e.result.approved ? C.green : C.red, now); return; }
-      const value = e.result && e.result[READING[who]];
-      const color = VOTE_COLOR[value] || C.gray;
+      const r = e.result || {};
+      let color;
+      if (who === "Ledgerkeeper") color = r.positions ? C.amber : C.gray;
+      else if (who === "Scorekeeper") color = !r.closed ? C.gray : r.pnl >= 0 ? C.green : C.red;
+      else color = VOTE_COLOR[r[READING[who]]] || C.gray;
       glow(who, color, now);
       if (ROUTE[who]) travel(center(who), center(ROUTE[who]), color, now);
     } else if (e.kind === "decision") {
@@ -178,7 +187,6 @@
       const ex = exchangeOf(e.symbol);
       const tag = { take_profit: "TARGET", stop_loss: "STOP", end_of_day: "BELL" }[e.reason] || "CLOSE";
       if (ex) float(ex.x + ex.w / 2, ex.y + 60, `${tag} ${signed(e.pnl)}`, e.pnl >= 0 ? C.green : C.red, now);
-      glow("Ledgerkeeper", e.pnl >= 0 ? C.green : C.red, now, 500);
     } else if (e.kind === "tick") {
       if (e.day !== (state.prevBannerDay ?? -1)) {
         fx.banner = { text: `Day ${e.day + 1}`, t0: now };
@@ -240,6 +248,29 @@
     el.classList.toggle("pos", v > 0); el.classList.toggle("neg", v < 0);
   }
 
+  let bookShown, scoreShown;
+  function renderBooks() {
+    const b = state.book, s = state.score;
+    if (b === bookShown && s === scoreShown) return;
+    bookShown = b; scoreShown = s;
+    const pct = (v) => (v == null ? "-" : `${(v * 100).toFixed(0)}%`);
+    const val = (v, f) => (v == null ? "-" : f(v));
+    const rows = [
+      ["Open exposure", b ? `${money(b.exposure)} (${b.exposure_pct}%)` : "-"],
+      ["Capital at risk", b ? `${money(b.at_risk)} (${b.at_risk_pct}%)` : "-"],
+      ["Win rate", s ? `${pct(s.win_rate)} of ${s.closed}` : "-"],
+      ["Avg win / loss", s ? `${val(s.avg_win, money)} / ${val(s.avg_loss, money)}` : "-"],
+      ["Profit factor", s ? val(s.profit_factor, (v) => v.toFixed(2)) : "-"],
+      ["Loss streak", s ? `${s.loss_streak} now, ${s.max_loss_streak} max` : "-"],
+    ];
+    const dl = $("books"); dl.textContent = "";
+    for (const [k, v] of rows) {
+      const dt = document.createElement("dt"); dt.textContent = k;
+      const dd = document.createElement("dd"); dd.textContent = v;
+      dl.append(dt, dd);
+    }
+  }
+
   let ultronShown = null;
   function updateHud() {
     if (!state) return;
@@ -258,6 +289,8 @@
     const market = meta.source === "alpaca" ? "Market" : "Sim";
     mode.textContent = `${market} · ${isLive() ? "Live" : "Replay"}`;
     mode.classList.toggle("live", isLive());
+
+    renderBooks();
 
     const scrub = $("scrub");
     scrub.max = groups.length;
@@ -562,6 +595,7 @@
     meta = { ...DEFAULT_META, ...m };
     runId = meta.run_id; audit = null; events = []; groups = []; evPos = [];
     state = freshState(); applied = 0; P = 0; fx = freshFx(); feedShown = null; ultronShown = null;
+    bookShown = scoreShown = undefined;
     renderFeed(true); setPlaying(true);
   }
 
@@ -616,7 +650,7 @@
     renderFeed(false);
   }
 
-  window.addEventListener("resize", resize);
+  new ResizeObserver(resize).observe($("stage")); // also catches layout changes, not just window resizes
   resize();
   poll();
   requestAnimationFrame(frame);

@@ -12,6 +12,7 @@ class Raphael:
 
     RISK_AGENT = "Aegis"
     ALIASES = {"Strategy": "Strategist"}
+    BOOK_REPORTERS = ("PortfolioManager", "PerformanceAnalyst")  # Aegis's squad
 
     def __init__(self, ledger=None, clock=None, events=None):
         self.agents = {}
@@ -29,7 +30,8 @@ class Raphael:
     def dispatch(self, agent_name, task):
         if agent_name not in self.agents:
             raise KeyError(f"No agent named {agent_name}")
-        log(f"RAPHAEL -> {agent_name}: {task}")
+        shown = {k: (f"<{len(v)} trades>" if k == "trades" else v) for k, v in task.items()}
+        log(f"RAPHAEL -> {agent_name}: {shown}")
         result = self.agents[agent_name].handle(task)
         log(f"{agent_name} -> RAPHAEL: {result}")
         self.events.emit("agent_report", agent=agent_name,
@@ -92,6 +94,15 @@ class Raphael:
                              pnl=record["pnl"], reason=reason)
             closed.append({**record, "exit_reason": reason})
         return closed
+
+    def review(self):
+        """End of cycle: Ledgerkeeper and Scorekeeper report on the books to Aegis.
+
+        Returns {agent_name: report}. Reports only; nothing here changes a trade.
+        """
+        task = {"trades": self.ledger.trades}
+        return {name: self.dispatch(name, task)
+                for name in self.BOOK_REPORTERS if name in self.agents}
 
     def roster(self):
         for agent in self.agents.values():
