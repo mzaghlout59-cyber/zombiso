@@ -20,6 +20,7 @@ ACCOUNT_SIZE = 10_000.0           # paper account size in USD
 MAX_RISK_PER_TRADE_PCT = 0.25     # % of account risked per trade
 MAX_DAILY_LOSS_PCT = 1.0          # % of account, then Aegis halts trading for the day
 MAX_OPEN_POSITIONS = 3
+MAX_LOSS_STREAK = 4               # this many losses in a row in one day halts new trades until tomorrow
 REQUIRE_STOP_LOSS = True
 
 # Stops fill at the next price, not the stop, so a gap can lose more than planned.

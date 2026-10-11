@@ -77,6 +77,25 @@ class PaperLedger:
     def open_positions(self) -> int:
         return sum(1 for t in self.trades if t["status"] == "open")
 
+    def _closed_today(self) -> list:
+        """Today's closed trades, in the order they closed."""
+        if self.clock:
+            today = [t for t in self.trades
+                     if t["status"] == "closed" and t.get("closed_day") == self.clock.day]
+        else:
+            date = datetime.now(timezone.utc).date().isoformat()
+            today = [t for t in self.trades
+                     if t["status"] == "closed" and t["closed_at"].startswith(date)]
+        return sorted(today, key=lambda t: (t.get("closed_tick") or 0, t["closed_at"]))
+
+    def max_loss_streak_today(self) -> int:
+        """Longest run of consecutive losing closes today (a breakeven counts as a loss)."""
+        streak = best = 0
+        for t in self._closed_today():
+            streak = streak + 1 if t["pnl"] <= 0 else 0
+            best = max(best, streak)
+        return best
+
     def daily_pnl(self) -> float:
         """Realized P&L for today: the clock's day if there is a clock, else the UTC date."""
         if self.clock:

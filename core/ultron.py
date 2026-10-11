@@ -33,6 +33,8 @@ class Ultron(BaseAgent):
         open_trades = {}           # trade_id -> trade_opened event
         closed_pnl = {}            # trade_id -> pnl from trade_closed event
         day_pnl = defaultdict(float)
+        day_streak = defaultdict(int)       # current run of losing closes, per day
+        day_max_streak = defaultdict(int)   # longest run so far, per day
         last_decision = {}         # symbol -> latest decision event
 
         def flag(bucket, event, message):
@@ -80,6 +82,9 @@ class Ultron(BaseAgent):
                 if day_pnl[e["day"]] <= -max_daily_loss:
                     flag(violations, e, f"trade #{e['trade_id']} {sym} opened after the daily loss "
                                         f"limit was hit (day {e['day']} pnl {day_pnl[e['day']]:.2f})")
+                if day_max_streak[e["day"]] >= settings.MAX_LOSS_STREAK:
+                    flag(violations, e, f"trade #{e['trade_id']} {sym} opened after a losing streak of "
+                                        f"{day_max_streak[e['day']]} on day {e['day']}")
                 open_trades[e["trade_id"]] = e
 
             elif kind == "trade_closed":
@@ -94,6 +99,8 @@ class Ultron(BaseAgent):
                                       f"over the ${max_risk:.2f} limit (stop gapped)")
                 closed_pnl[e["trade_id"]] = e["pnl"]
                 day_pnl[e["day"]] += e["pnl"]
+                day_streak[e["day"]] = day_streak[e["day"]] + 1 if e["pnl"] <= 0 else 0
+                day_max_streak[e["day"]] = max(day_max_streak[e["day"]], day_streak[e["day"]])
 
         if ledger is not None:
             ledger_open = {t["id"] for t in ledger.trades if t["status"] == "open"}

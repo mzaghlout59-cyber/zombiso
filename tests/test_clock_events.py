@@ -37,6 +37,23 @@ def test_daily_pnl_resets_on_a_new_sim_day(tmp_path):
     assert aegis.evaluate("MSFT", trade)["approved"] is True
 
 
+def test_loss_streak_counts_today_in_close_order_and_resets_tomorrow(tmp_path):
+    clock = SimClock(cycles_per_day=10)
+    ledger = PaperLedger(tmp_path / "l.json", clock=clock)
+    clock.advance()
+    # opened A, B, C, D, E; they close in the order E(win) A B C(loss) D(loss)... see below
+    ids = [ledger.open_trade(s, "buy", 1, 100.0, 98.0)["id"] for s in "ABCDE"]
+    exits = [(ids[4], 101.0), (ids[0], 99.0), (ids[1], 99.0), (ids[2], 100.0), (ids[3], 99.5)]
+    for tid, price in exits:
+        clock.advance()
+        ledger.close_trade(tid, price)
+    assert ledger.max_loss_streak_today() == 4  # A, B, C (breakeven), D after E's win
+
+    for _ in range(10):
+        clock.advance()  # next day
+    assert ledger.max_loss_streak_today() == 0
+
+
 def test_ledger_records_sim_time(tmp_path):
     clock = SimClock(cycles_per_day=2)
     ledger = PaperLedger(tmp_path / "l.json", clock=clock)

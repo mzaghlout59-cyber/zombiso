@@ -23,6 +23,10 @@ from divisions.investment.aegis import AegisAgent
      {"daily_pnl": -99.99}, True),
     ("symbol already held", {"entry": 100, "stop_loss": 99.0, "size": 10},
      {"open_symbols": {"AAPL"}}, False),
+    ("losing streak hit", {"entry": 100, "stop_loss": 99.0, "size": 10},
+     {"loss_streak": 4}, False),
+    ("streak one below limit", {"entry": 100, "stop_loss": 99.0, "size": 10},
+     {"loss_streak": 3}, True),
 ])
 def test_evaluate(label, trade, state, expected):
     a = AegisAgent()

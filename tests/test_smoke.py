@@ -28,6 +28,7 @@ def _run(seed, tmp_path):
             "daily_pnl": ledger.daily_pnl(),
             "open_positions": ledger.open_positions(),
             "open_symbols": ledger.open_symbols(),
+            "loss_streak": ledger.max_loss_streak_today(),
         })
         return open_trade(symbol, side, size, entry, stop_loss)
 
@@ -55,6 +56,7 @@ def test_every_open_respected_aegis_rules(runs, seed):
         assert s["daily_pnl"] > -MAX_DAILY_LOSS
         assert s["open_positions"] < settings.MAX_OPEN_POSITIONS
         assert s["symbol"] not in s["open_symbols"]
+        assert s["loss_streak"] < settings.MAX_LOSS_STREAK
 
 
 @pytest.mark.parametrize("seed", SEEDS)

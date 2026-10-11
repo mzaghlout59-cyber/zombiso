@@ -20,6 +20,7 @@ class AegisAgent(BaseAgent):
         self.open_positions = 0
         self.daily_pnl = 0.0  # realized P&L today, in USD (negative = loss)
         self.open_symbols = set()  # symbols already held
+        self.loss_streak = 0       # longest run of losing closes today
 
     def handle(self, task):
         symbol = task.get("symbol")
@@ -41,6 +42,11 @@ class AegisAgent(BaseAgent):
         max_daily_loss = account * settings.MAX_DAILY_LOSS_PCT / 100
         if self.daily_pnl <= -max_daily_loss:
             return self._deny(symbol, f"daily loss limit hit ({self.daily_pnl:.2f} <= -{max_daily_loss:.2f})")
+
+        # Rule 1b: cool-off. Too many losses in a row today halts new trades until tomorrow.
+        if self.loss_streak >= settings.MAX_LOSS_STREAK:
+            return self._deny(symbol, f"losing streak ({self.loss_streak} in a row today), "
+                                      f"no new trades until tomorrow")
 
         # Rule 2: position cap
         if self.open_positions >= settings.MAX_OPEN_POSITIONS:

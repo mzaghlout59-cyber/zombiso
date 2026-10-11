@@ -106,6 +106,29 @@ def test_flags_trade_after_daily_limit():
     assert report["warnings"]  # the -150 loss itself is over the per-trade limit
 
 
+def test_flags_trade_after_losing_streak():
+    events, seq = [], 0
+
+    def add(**e):
+        nonlocal seq
+        seq += 1
+        events.append({"seq": seq, "day": 0, **e})
+
+    for tid in range(1, 5):  # four small losses in a row, each well inside the daily limit
+        add(tick=tid, kind="decision", symbol=f"S{tid}", action="buy", confidence=0.5,
+            approved=True, executed=True)
+        add(tick=tid, kind="trade_opened", trade_id=tid, symbol=f"S{tid}", side="buy",
+            size=5, entry=100.0, stop_loss=98.0)
+        add(tick=tid, kind="trade_closed", trade_id=tid, symbol=f"S{tid}", side="buy", size=5,
+            entry=100.0, stop_loss=98.0, exit=99.0, pnl=-5.0, reason="stop_loss")
+    add(tick=5, kind="decision", symbol="S5", action="buy", confidence=0.5, approved=True, executed=True)
+    add(tick=5, kind="trade_opened", trade_id=5, symbol="S5", side="buy", size=5,
+        entry=100.0, stop_loss=98.0)
+    msg = messages(Ultron().audit(events))
+    assert "after a losing streak of 4" in msg
+    assert msg.count("losing streak") == 1  # trades 1-4 were fine
+
+
 def test_flags_ledger_that_disagrees_with_events(clean_run, tmp_path):
     ledger = PaperLedger(tmp_path / "copy.json")
     ledger.trades = copy.deepcopy(clean_run.ledger.trades)
