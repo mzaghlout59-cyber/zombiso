@@ -24,8 +24,7 @@ class MarketResearchAgent(BaseAgent):
         prices = _prices(task, 2)
         if prices is None or prices[0] == 0:
             return {"symbol": task.get("symbol"), "trend": "unknown", "status": "stub"}
-
-        change = (prices[-1] - prices[0]) / prices[0]
+        change = (prices[-1] - prices[-2]) / prices[-2]
         if change > self.FLAT_BAND:
             trend = "up"
         elif change < -self.FLAT_BAND:
@@ -133,6 +132,8 @@ class ChartsAgent(BaseAgent):
             pattern = "none"
 
         return {"symbol": task.get("symbol"), "pattern": pattern, "status": "simulated"}
+
+
 
 
 

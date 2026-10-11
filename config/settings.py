@@ -34,3 +34,7 @@ REQUIRE_STOP_LOSS = True
 
 # Exits: take profit at this multiple of the stop distance (reward:risk)
 TAKE_PROFIT_RR = 2.0
+
+# Sage gate: trades whose Sage confidence is below this are skipped.
+# Can only make trading more conservative. Aegis still has the final say.
+MIN_SAGE_CONFIDENCE = 0.25
