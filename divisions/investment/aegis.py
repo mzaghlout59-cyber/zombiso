@@ -61,11 +61,14 @@ class AegisAgent(BaseAgent):
         if stop is not None and stop <= 0:
             return self._deny(symbol, "invalid stop-loss")
 
-        # Rule 4: risk per trade
-        risk_usd = abs(entry - stop) * size if stop is not None else float("inf")
+        # Rule 4: risk per trade, assuming the stop may gap (see STOP_GAP_BUFFER)
+        if stop is None:
+            risk_usd = float("inf")
+        else:
+            risk_usd = abs(entry - stop) * size * settings.STOP_GAP_BUFFER
         max_risk_usd = account * settings.MAX_RISK_PER_TRADE_PCT / 100
         if risk_usd > max_risk_usd:
-            return self._deny(symbol, f"risk ${risk_usd:.2f} exceeds max ${max_risk_usd:.2f} per trade")
+            return self._deny(symbol, f"worst-case risk ${risk_usd:.2f} exceeds max ${max_risk_usd:.2f} per trade")
 
         return {
             "symbol": symbol,

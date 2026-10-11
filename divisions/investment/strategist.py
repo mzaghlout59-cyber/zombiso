@@ -45,7 +45,7 @@ class StrategistAgent(BaseAgent):
         risk_per_share = entry - stop_loss
 
         max_risk_usd = settings.ACCOUNT_SIZE * settings.MAX_RISK_PER_TRADE_PCT / 100
-        size = int(max_risk_usd // risk_per_share)
+        size = int(max_risk_usd // (risk_per_share * settings.STOP_GAP_BUFFER))
         if size < 1:
             return self._hold(symbol, "risk budget too small for even 1 share")
 

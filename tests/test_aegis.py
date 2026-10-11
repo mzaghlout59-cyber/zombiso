@@ -2,13 +2,15 @@ import pytest
 
 from divisions.investment.aegis import AegisAgent
 
-# Account = 10,000 -> max risk per trade = $25, max daily loss = $100
+# Account = 10,000 -> max risk per trade = $25, max daily loss = $100.
+# Risk is worst-case: stop distance x size x STOP_GAP_BUFFER (2.0).
 
 
 @pytest.mark.parametrize("label, trade, state, expected", [
-    ("valid trade, risk $20", {"entry": 100, "stop_loss": 99.0, "size": 20}, {}, True),
-    ("risk exactly at max, $25", {"entry": 100, "stop_loss": 99.0, "size": 25}, {}, True),
-    ("risk too big, $50", {"entry": 100, "stop_loss": 99.0, "size": 50}, {}, False),
+    ("valid trade, risk $20", {"entry": 100, "stop_loss": 99.0, "size": 10}, {}, True),
+    ("risk exactly at max, $25", {"entry": 100, "stop_loss": 99.0, "size": 12.5}, {}, True),
+    ("risk too big, $26", {"entry": 100, "stop_loss": 99.0, "size": 13}, {}, False),
+    ("fits without buffer, not with it", {"entry": 100, "stop_loss": 99.0, "size": 20}, {}, False),
     ("no stop-loss", {"entry": 100, "stop_loss": None, "size": 10}, {}, False),
     ("negative stop-loss", {"entry": 100, "stop_loss": -1, "size": 10}, {}, False),
     ("invalid size 0", {"entry": 100, "stop_loss": 99.0, "size": 0}, {}, False),

@@ -22,6 +22,10 @@ MAX_DAILY_LOSS_PCT = 1.0          # % of account, then Aegis halts trading for t
 MAX_OPEN_POSITIONS = 3
 REQUIRE_STOP_LOSS = True
 
+# Stops fill at the next price, not the stop, so a gap can lose more than planned.
+# Size trades as if the stop could slip to this multiple of its distance.
+STOP_GAP_BUFFER = 2.0
+
 # Exits: take profit at this multiple of the stop distance (reward:risk)
 TAKE_PROFIT_RR = 2.0
 

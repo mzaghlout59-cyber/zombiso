@@ -7,7 +7,7 @@ from core.raphael import Raphael
 from divisions.investment.aegis import AegisAgent
 from run_city import build_city
 
-TRADE = {"entry": 105.0, "stop_loss": 102.90, "size": 11, "side": "buy"}
+TRADE = {"entry": 105.0, "stop_loss": 102.90, "size": 5, "side": "buy"}
 POP = [100, 99, 98, 97, 96, 105]  # Strategist proposes a buy on this
 
 

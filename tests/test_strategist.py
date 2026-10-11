@@ -19,7 +19,8 @@ def test_downtrend_then_pop_buys():
 def test_proposal_fits_risk_budget_and_passes_aegis():
     trade = propose([100, 99, 98, 97, 96, 105])["trade"]
     max_risk = settings.ACCOUNT_SIZE * settings.MAX_RISK_PER_TRADE_PCT / 100
-    assert (trade["entry"] - trade["stop_loss"]) * trade["size"] <= max_risk
+    worst_case = (trade["entry"] - trade["stop_loss"]) * trade["size"] * settings.STOP_GAP_BUFFER
+    assert worst_case <= max_risk
     assert AegisAgent().evaluate("AAPL", trade)["approved"] is True
 
 
