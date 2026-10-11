@@ -26,6 +26,9 @@ REQUIRE_STOP_LOSS = True
 # Size trades as if the stop could slip to this multiple of its distance.
 STOP_GAP_BUFFER = 2.0
 
+# Simulated time: the daily loss limit resets every this many cycles
+CYCLES_PER_DAY = 20
+
 # Exits: take profit at this multiple of the stop distance (reward:risk)
 TAKE_PROFIT_RR = 2.0
 

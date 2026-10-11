@@ -10,7 +10,9 @@ LEDGER_PATH = Path("data/paper_ledger.json")
 
 
 class PaperLedger:
-    def __init__(self, path: Path = LEDGER_PATH):
+    def __init__(self, path: Path = LEDGER_PATH, clock=None):
+        """clock: a SimClock. With one, "today" is the city's day; without, the real UTC date."""
+        self.clock = clock
         self.path = Path(path)
         self.path.parent.mkdir(parents=True, exist_ok=True)
         self.trades: list[dict] = self._load()
@@ -36,9 +38,13 @@ class PaperLedger:
             "stop_loss": stop_loss,
             "status": "open",
             "opened_at": datetime.now(timezone.utc).isoformat(),
+            "opened_tick": self.clock.tick if self.clock else None,
+            "opened_day": self.clock.day if self.clock else None,
             "exit": None,
             "pnl": 0.0,
             "closed_at": None,
+            "closed_tick": None,
+            "closed_day": None,
         }
         self.trades.append(trade)
         self._save()
@@ -52,6 +58,9 @@ class PaperLedger:
                 t["pnl"] = round((exit_price - t["entry"]) * t["size"] * direction, 2)
                 t["status"] = "closed"
                 t["closed_at"] = datetime.now(timezone.utc).isoformat()
+                if self.clock:
+                    t["closed_tick"] = self.clock.tick
+                    t["closed_day"] = self.clock.day
                 self._save()
                 return t
         raise ValueError(f"No open trade with id {trade_id}")
@@ -69,6 +78,12 @@ class PaperLedger:
         return sum(1 for t in self.trades if t["status"] == "open")
 
     def daily_pnl(self) -> float:
+        """Realized P&L for today: the clock's day if there is a clock, else the UTC date."""
+        if self.clock:
+            return round(sum(
+                t["pnl"] for t in self.trades
+                if t["status"] == "closed" and t.get("closed_day") == self.clock.day
+            ), 2)
         today = datetime.now(timezone.utc).date().isoformat()
         return round(sum(
             t["pnl"] for t in self.trades

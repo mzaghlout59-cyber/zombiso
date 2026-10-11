@@ -1,4 +1,6 @@
 from config import settings
+from core.clock import SimClock
+from core.events import EventLog
 from core.logger import log
 from core.exits import exit_signal
 from core.ledger import PaperLedger
@@ -11,10 +13,14 @@ class Raphael:
     RISK_AGENT = "Aegis"
     ALIASES = {"Strategy": "Strategist"}
 
-    def __init__(self, ledger=None):
+    def __init__(self, ledger=None, clock=None, events=None):
         self.agents = {}
         self.sage = Sage()
-        self.ledger = ledger or PaperLedger()
+        self.clock = clock or SimClock()
+        self.ledger = ledger or PaperLedger(clock=self.clock)
+        if self.ledger.clock is None:
+            self.ledger.clock = self.clock
+        self.events = events or EventLog(clock=self.clock)
 
     def register(self, agent):
         self.agents[agent.name] = agent
@@ -26,6 +32,8 @@ class Raphael:
         log(f"RAPHAEL -> {agent_name}: {task}")
         result = self.agents[agent_name].handle(task)
         log(f"{agent_name} -> RAPHAEL: {result}")
+        self.events.emit("agent_report", agent=agent_name,
+                         symbol=task.get("symbol"), result=result)
         return result
 
     def check_exits(self, prices):
@@ -44,6 +52,10 @@ class Raphael:
                 record = self.ledger.close_trade(trade["id"], price)
                 log(f"RAPHAEL closed trade #{trade['id']} {trade['symbol']} "
                     f"at {price} ({reason}) pnl={record['pnl']}")
+                self.events.emit("trade_closed", trade_id=record["id"], symbol=record["symbol"],
+                                 side=record["side"], size=record["size"], entry=record["entry"],
+                                 stop_loss=record["stop_loss"], exit=price,
+                                 pnl=record["pnl"], reason=reason)
                 closed.append({**record, "exit_reason": reason})
         return closed
 
@@ -98,6 +110,11 @@ class Raphael:
             log(f"RAPHAEL skipped trade: Sage confidence {recommendation['confidence']} "
                 f"below {settings.MIN_SAGE_CONFIDENCE}")
         executed = approved and confident and recommendation["action"] != "hold"
+        self.events.emit("decision", symbol=task.get("symbol"),
+                         action=recommendation["action"],
+                         confidence=recommendation["confidence"],
+                         approved=approved, risk_reason=risk.get("reason"),
+                         executed=bool(executed and trade))
         if executed and trade:
             record = self.ledger.open_trade(
                 symbol=task.get("symbol"),
@@ -107,6 +124,9 @@ class Raphael:
                 stop_loss=trade["stop_loss"],
             )
             log(f"RAPHAEL recorded paper trade #{record['id']} in ledger")
+            self.events.emit("trade_opened", trade_id=record["id"], symbol=record["symbol"],
+                             side=record["side"], size=record["size"], entry=record["entry"],
+                             stop_loss=record["stop_loss"])
         decision = {
             "goal": goal,
             "recommendation": recommendation,

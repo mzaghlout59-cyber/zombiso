@@ -10,11 +10,12 @@ from divisions.investment.agents import (
 from divisions.investment.strategist import StrategistAgent
 from divisions.investment.aegis import AegisAgent
 from core.sage import Sage
+from core.ultron import Ultron
 
 ALL_AGENTS = [
     MarketResearchAgent, NewsResearchAgent, SentimentAgent, ChartsAgent,
     StrategistAgent, AegisAgent, PortfolioManagerAgent,
-    PerformanceAnalystAgent, Sage,
+    PerformanceAnalystAgent, Sage, Ultron,
 ]
 # Sage now inherits BaseAgent and is part of the roster.
 

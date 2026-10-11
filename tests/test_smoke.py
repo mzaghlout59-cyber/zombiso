@@ -32,8 +32,8 @@ def _run(seed, tmp_path):
         return open_trade(symbol, side, size, entry, stop_loss)
 
     ledger.open_trade = recording_open_trade
-    run_city(SimulatedFeed(START_PRICES, seed=seed), cycles=CYCLES,
-             raphael=build_city(ledger=ledger))
+    ledger.raphael = run_city(SimulatedFeed(START_PRICES, seed=seed), cycles=CYCLES,
+                              raphael=build_city(ledger=ledger))
     return ledger, snapshots
 
 
@@ -65,6 +65,13 @@ def test_every_trade_has_stop_and_valid_close(runs, seed):
         if t["status"] == "closed":
             expected = round((t["exit"] - t["entry"]) * t["size"], 2)
             assert t["pnl"] == expected
+
+
+@pytest.mark.parametrize("seed", SEEDS)
+def test_ultron_audit_is_clean(runs, seed):
+    ledger, _ = runs[seed]
+    report = ledger.raphael.audit
+    assert report["ok"], [v["message"] for v in report["violations"]]
 
 
 @pytest.mark.parametrize("seed", [0, 5])

@@ -24,11 +24,14 @@ def test_run_is_repeatable():
     print("PASS: same seed gives identical trades on a fresh ledger")
 
 
-def test_daily_pnl_matches_closed_trades():
+def test_daily_pnl_matches_todays_closed_trades():
     ledger = _fresh_run()
-    closed_sum = round(sum(t["pnl"] for t in ledger.trades if t["status"] == "closed"), 2)
+    today = ledger.clock.day
+    assert today > 0  # 30 cycles span more than one sim day
+    closed_sum = round(sum(t["pnl"] for t in ledger.trades
+                           if t["status"] == "closed" and t["closed_day"] == today), 2)
     assert round(ledger.daily_pnl(), 2) == closed_sum
-    print("PASS: daily_pnl equals the sum of closed-trade pnl")
+    print("PASS: daily_pnl equals the sum of today's closed-trade pnl")
 
 
 def test_never_more_than_three_open():

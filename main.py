@@ -1,30 +1,11 @@
+"""Quick demo: show the roster and evaluate one symbol on a fresh run ledger."""
 from config import settings
-from core.raphael import Raphael
-from divisions.investment.agents import (
-    MarketResearchAgent,
-    NewsResearchAgent,
-    PortfolioManagerAgent,
-    PerformanceAnalystAgent,
-    SentimentAgent,
-    ChartsAgent,
-)
-from divisions.investment.strategist import StrategistAgent
-from divisions.investment.aegis import AegisAgent
+from run_city import build_city
 
 print(f"=== {settings.PROJECT_NAME} | mode: {settings.TRADING_MODE} ===")
 
-raphael = Raphael()
-for agent_class in [
-    MarketResearchAgent,
-    NewsResearchAgent,
-    StrategistAgent,
-    AegisAgent,
-    PortfolioManagerAgent,
-    PerformanceAnalystAgent,
-    SentimentAgent,
-    ChartsAgent,
-]:
-    raphael.register(agent_class())
+raphael = build_city()
+raphael.clock.advance()
 
 print("\n--- Roster ---")
 raphael.roster()
