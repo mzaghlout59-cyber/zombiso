@@ -52,6 +52,30 @@ def market_clock(session=None):
     }
 
 
+NEWS_URL = "https://data.alpaca.markets/v1beta1/news"
+
+
+def fetch_news(symbols, hours=24, limit=10, session=None):
+    """Recent headlines for the symbols, newest first: [{"id", "headline", "summary", "created_at"}]."""
+    start = (datetime.now(timezone.utc) - timedelta(hours=hours)).isoformat()
+    d = _get(NEWS_URL, {"symbols": ",".join(symbols), "start": start, "limit": limit,
+                        "sort": "desc"}, session=session)
+    return [{"id": n["id"], "headline": n.get("headline", ""), "summary": n.get("summary", ""),
+             "created_at": n.get("created_at", "")} for n in (d.get("news") or [])]
+
+
+def fetch_daily_bars(symbols, days=5, session=None):
+    """Last few daily bars per symbol, oldest first: {sym: [{"t","o","h","l","c","v"}]}."""
+    start = (datetime.now(timezone.utc) - timedelta(days=days * 2 + 4)).isoformat()
+    out = {}
+    for sym in symbols:
+        d = _get(f"{DATA_URL}/stocks/{sym}/bars",
+                 {"timeframe": "1Day", "start": start, "limit": days, "sort": "desc", "feed": "iex"},
+                 session=session)
+        out[sym] = list(reversed(d.get("bars") or []))
+    return out
+
+
 class AlpacaFeed(PriceFeed):
     """Real prices. advance() appends each symbol's latest trade price.
 

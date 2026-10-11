@@ -30,6 +30,11 @@ class Sage(BaseAgent):
         "pattern": {"breakout": "buy", "breakdown": "sell"},
     }
     MAX_CONFIDENCE = 0.9
+    # A research bias against the signal halves confidence. Caution only: never raises it.
+    OPPOSING_BIAS = {"buy": "bearish", "sell": "bullish"}
+
+    def __init__(self):
+        self.briefing = {}  # symbol -> "bullish" | "bearish" | "neutral", set before the open
 
     def recommend(self, results):
         """Weigh agent results into a recommendation with confidence and reasoning.
@@ -63,13 +68,20 @@ class Sage(BaseAgent):
         else:
             confidence = min(self.MAX_CONFIDENCE, round(agree / len(readings), 2))
 
+        caution = ""
+        symbol = results.get("MarketResearch", {}).get("symbol")
+        bias = self.briefing.get(symbol, "neutral")
+        if confidence > 0 and bias == self.OPPOSING_BIAS.get(signal):
+            confidence = round(confidence / 2, 2)
+            caution = f" Research bias is {bias}: confidence halved."
+
         recommendation = {
             "action": signal,
             "confidence": confidence,
             "reasoning": f"trend={trend}, sentiment={sentiment}, "
                          f"crowd_mood={crowd_mood}, pattern={pattern}, "
                          f"strategy signal={signal}. "
-                         f"{agree} signals agree, {disagree} disagree.",
+                         f"{agree} signals agree, {disagree} disagree.{caution}",
         }
         log(f"Sage recommendation: {recommendation}")
         return recommendation

@@ -21,7 +21,7 @@
   // ---------- the city map (logical 1200x720) ----------
   const PLACES = {
     Scout:        { x: 150,  y: 95,  w: 96,  h: 52, title: "Scout", sub: "trend", kind: "squad" },
-    News:         { x: 260,  y: 95,  w: 96,  h: 52, title: "News", sub: "headlines", kind: "squad", stub: true },
+    News:         { x: 260,  y: 95,  w: 96,  h: 52, title: "News", sub: "headlines", kind: "squad" },
     Pulse:        { x: 370,  y: 95,  w: 96,  h: 52, title: "Pulse", sub: "crowd mood", kind: "squad" },
     Lens:         { x: 480,  y: 95,  w: 96,  h: 52, title: "Lens", sub: "patterns", kind: "squad" },
     Sage:         { x: 315,  y: 228, w: 140, h: 66, title: "Sage", sub: "weighs signals", kind: "commander" },
@@ -32,6 +32,7 @@
     Scorekeeper:  { x: 995,  y: 95,  w: 110, h: 52, title: "Scorekeeper", sub: "win rate", kind: "squad" },
     Ultron:       { x: 1125, y: 200, w: 70,  h: 170, title: "Ultron", sub: "auditor", kind: "tower" },
     Vault:        { x: 110,  y: 300, w: 130, h: 64, title: "Treasury", sub: "the vault", kind: "bank" },
+    Research:     { x: 110,  y: 205, w: 120, h: 52, title: "Research", sub: "bureau", kind: "squad" },
   };
   const AGENT_ALIAS = {
     MarketResearch: "Scout", NewsResearch: "News", Sentiment: "Pulse",
@@ -93,7 +94,8 @@
     (meta.watchlist || []).forEach((s) => (prices[s] = []));
     return { tick: 0, day: 0, prices, open: {}, realized: 0, dayPnl: {}, trades: 0,
              wins: 0, losses: 0, decisions: {}, feed: [], seenDay: -1, book: null, score: null,
-             startEquity: meta.start_equity || meta.account_size || 10000 };
+             startEquity: meta.start_equity || meta.account_size || 10000,
+             briefing: null, newsSeen: {} };
   }
 
   const money = (v) => (v < 0 ? "-$" : "$") + Math.abs(v).toFixed(2);
@@ -110,9 +112,21 @@
       case "treasury":
         s.startEquity = e.equity;
         break;
+      case "briefing": {
+        s.briefing = e;
+        const biases = Object.entries(e.bias || {}).map(([k, v]) => `${k} ${v}`).join(", ");
+        pushFeed(s, e.tick, e.status === "active" ? `Research briefing: ${biases}` : "No research briefing today", "day");
+        break;
+      }
       case "agent_report":
         if (e.agent === "PortfolioManager") s.book = e.result;
         if (e.agent === "PerformanceAnalyst") s.score = e.result;
+        if (e.agent === "NewsResearch" && e.result && e.result.status === "active"
+            && s.newsSeen[e.symbol] !== e.result.top) {
+          s.newsSeen[e.symbol] = e.result.top;
+          pushFeed(s, e.tick, `News ${e.symbol} ${e.result.sentiment}: ${e.result.top}`,
+                   e.result.sentiment === "negative" ? "loss" : e.result.sentiment === "positive" ? "win" : "");
+        }
         break;
       case "tick":
         s.tick = e.tick;
@@ -188,6 +202,9 @@
         if (!e.approved) float(930, 185, `DENIED ${e.symbol}`, C.red, now);
         else if (!e.executed) float(930, 185, `${e.symbol}: low confidence`, C.amber, now);
       }
+    } else if (e.kind === "briefing") {
+      glow("Research", e.status === "active" ? C.violet : C.gray, now, 1500);
+      travel(center("Research"), center("Sage"), C.violet, now, { slow: 2, size: 6 });
     } else if (e.kind === "trade_opened") {
       const path = aegisToExchange(e.symbol);
       if (path) travel(center("Aegis"), path, C.gold, now, { slow: 1.8, size: 7 });
@@ -286,6 +303,26 @@
     }
   }
 
+  let briefingShown;
+  function renderBriefing() {
+    const b = state.briefing;
+    if (b === briefingShown) return;
+    briefingShown = b;
+    const section = $("briefing-section");
+    section.hidden = !b;
+    if (!b) return;
+    $("briefing-summary").textContent = b.status === "active" ? b.summary : "No briefing today (Claude unavailable).";
+    const ul = $("briefing-list"); ul.textContent = "";
+    for (const row of b.symbols || []) {
+      const li = document.createElement("li");
+      const tag = document.createElement("b");
+      tag.textContent = `${row.symbol} ${row.bias}`;
+      tag.className = row.bias === "bullish" ? "pos" : row.bias === "bearish" ? "neg" : "";
+      li.append(tag, document.createTextNode(`: ${row.levels}`));
+      ul.append(li);
+    }
+  }
+
   let ultronShown = null;
   function updateHud() {
     if (!state) return;
@@ -308,6 +345,7 @@
     mode.classList.toggle("live", isLive());
 
     renderBooks();
+    renderBriefing();
 
     const scrub = $("scrub");
     scrub.max = groups.length;
@@ -399,7 +437,7 @@
   }
 
   function drawRoads(now) {
-    for (const s of ["Scout", "News", "Pulse", "Lens"]) road([center(s), center("Sage")]);
+    for (const s of ["Scout", "News", "Pulse", "Lens", "Research"]) road([center(s), center("Sage")]);
     road([center("Sage"), center("Raphael")], 10);
     road([center("Axiom"), center("Raphael")], 10);
     road([center("Raphael"), center("Aegis")], 12);
@@ -622,7 +660,7 @@
     meta = { ...DEFAULT_META, ...m };
     runId = meta.run_id; audit = null; events = []; groups = []; evPos = [];
     state = freshState(); applied = 0; P = 0; fx = freshFx(); feedShown = null; ultronShown = null;
-    bookShown = scoreShown = undefined;
+    bookShown = scoreShown = briefingShown = undefined;
     renderFeed(true); setPlaying(true);
   }
 

@@ -20,8 +20,10 @@ from datetime import datetime
 from config import settings
 from pathlib import Path
 
-from core.alpaca import AlpacaError, AlpacaFeed, market_clock
+from core.alpaca import AlpacaError, AlpacaFeed, fetch_daily_bars, fetch_news, market_clock
+from core.llm import LLMUnavailable, make_client
 from core.treasury import Treasury
+from divisions.research.bureau import ResearchBureau
 from run_city import START_PRICES, WINDOW, build_city, new_run_dir, run_city
 
 CLOSE_BUFFER_S = 60  # stop this long before the closing bell
@@ -43,6 +45,20 @@ def plan_session(clock, interval, max_wait_hours):
     if cycles < 1:
         return None
     return wait, cycles
+
+
+def write_briefing(symbols, bureau=None, session=None):
+    """Pre-open: the Research bureau reads daily bars + overnight news and writes a briefing."""
+    bureau = bureau or ResearchBureau()
+    try:
+        bars = fetch_daily_bars(symbols, days=5, session=session)
+        news = {sym: fetch_news([sym], hours=18, limit=8, session=session) for sym in symbols}
+    except AlpacaError as e:
+        print(f"Research: no market data for the briefing ({e})")
+        bars, news = {}, {}
+    briefing = bureau.handle({"symbols": symbols, "bars": bars, "news": news})
+    print(f"Research briefing: {briefing['status']} | bias {briefing['bias']}")
+    return briefing
 
 
 def main(argv=None):
@@ -72,6 +88,11 @@ def main(argv=None):
                 print(f"  {sym}: {feed.get_price(sym)}")
             except KeyError:
                 print(f"  {sym}: no price")
+        try:
+            make_client()
+            print("Claude: ANTHROPIC_API_KEY set and SDK loads (News and Research can run)")
+        except LLMUnavailable as e:
+            print(f"Claude: unavailable, News stays neutral and no briefing ({e})")
         return 0
 
     plan = plan_session(clock, args.interval, args.max_wait_hours)
@@ -79,6 +100,7 @@ def main(argv=None):
         print("No market session within the wait window (weekend or holiday). Nothing to do.")
         return 0
     wait, cycles = plan
+    briefing = write_briefing(symbols)
     if wait > 0:
         print(f"Waiting {wait / 60:.0f} minutes for the opening bell...")
         time.sleep(wait + 5)
@@ -95,7 +117,13 @@ def main(argv=None):
     print(f"Session: {cycles} cycles, one every {args.interval}s | run folder {run_dir}")
     treasury = Treasury(path=TREASURY_PATH)
     print(f"Treasury: starting equity ${treasury.equity:,.2f}")
-    raphael = build_city(run_dir=run_dir, cycles_per_day=cycles, treasury=treasury)
+    raphael = build_city(run_dir=run_dir, cycles_per_day=cycles, treasury=treasury,
+                         news_source=lambda sym: fetch_news([sym], hours=24, limit=10))
+    raphael.sage.briefing = briefing["bias"]
+    raphael.events.emit("briefing", status=briefing["status"], summary=briefing["summary"],
+                        symbols=briefing["symbols"], bias=briefing["bias"])
+    (run_dir / "briefing.md").write_text(
+        ResearchBureau.to_markdown(briefing, datetime.now().strftime("%Y-%m-%d")), encoding="utf-8")
     run_city(feed, cycles=cycles, watchlist=symbols, raphael=raphael, tick_delay=args.interval,
              warmup=False, close_at_end=True, source="alpaca")
     day = treasury.settle(run_dir.name)

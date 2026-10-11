@@ -1,5 +1,7 @@
 from config import settings
+from core.alpaca import AlpacaError
 from core.base_agent import BaseAgent
+from core.llm import LLMUnavailable, ask_json
 
 
 def _prices(task, minimum):
@@ -47,9 +49,56 @@ class NewsResearchAgent(BaseAgent):
     commander = "Sage"
     purpose = "Checks what just happened: news, catalysts and market context."
 
+    SYSTEM = ("You are a careful equity news analyst for a paper-trading simulation. "
+              "Judge whether recent headlines are net positive, negative or neutral for the "
+              "stock's price over the next few hours. Most news is neutral; only call it "
+              "positive or negative when the headlines clearly point one way.")
+    SCHEMA = {
+        "type": "object",
+        "properties": {
+            "sentiment": {"type": "string", "enum": ["positive", "negative", "neutral"]},
+            "reason": {"type": "string"},
+        },
+        "required": ["sentiment", "reason"],
+        "additionalProperties": False,
+    }
+
+    def __init__(self, news_source=None, llm=None):
+        """news_source(symbol) -> [{"id", "headline", "summary", ...}]; None = no news (simulations).
+        llm(system, prompt, schema) -> dict; defaults to Claude via core.llm.ask_json."""
+        self.news_source = news_source
+        self.llm = llm or ask_json
+        self._cache = {}  # symbol -> (headline ids, verdict): Claude is asked only when news changes
+
     def handle(self, task):
-        self.say(f"Scanning news for {task.get('symbol')}")
-        return {"symbol": task.get("symbol"), "sentiment": "neutral", "status": "stub"}
+        sym = task.get("symbol")
+        self.say(f"Scanning news for {sym}")
+        if self.news_source is None:
+            return {"symbol": sym, "sentiment": "neutral", "status": "no_source"}
+        try:
+            items = self.news_source(sym)
+        except AlpacaError as e:
+            self.say(f"News unavailable for {sym}: {e}")
+            return {"symbol": sym, "sentiment": "neutral", "status": "unavailable"}
+        if not items:
+            return {"symbol": sym, "sentiment": "neutral", "status": "no_news"}
+
+        ids = tuple(item["id"] for item in items)
+        cached = self._cache.get(sym)
+        if cached and cached[0] == ids:
+            return cached[1]
+
+        lines = "\n".join(f"- {i['headline']}" + (f" — {i['summary']}" if i.get("summary") else "")
+                          for i in items)
+        try:
+            verdict = self.llm(self.SYSTEM, f"Recent headlines for {sym}:\n{lines}", self.SCHEMA)
+        except LLMUnavailable as e:
+            self.say(f"Claude unavailable, staying neutral on {sym}: {e}")
+            return {"symbol": sym, "sentiment": "neutral", "status": "unavailable"}
+        result = {"symbol": sym, "sentiment": verdict["sentiment"], "reason": verdict["reason"],
+                  "headlines": len(items), "top": items[0]["headline"], "status": "active"}
+        self._cache[sym] = (ids, result)
+        return result
 
 
 class PortfolioManagerAgent(BaseAgent):

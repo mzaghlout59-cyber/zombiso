@@ -56,10 +56,11 @@ def new_run_dir(root=None):
     return run_dir
 
 
-def build_city(ledger=None, run_dir=None, cycles_per_day=None, treasury=None):
+def build_city(ledger=None, run_dir=None, cycles_per_day=None, treasury=None, news_source=None):
     """Wire up the city. Pass a ledger (tests) or a run_dir; with neither, a new run dir is made.
 
     treasury: a Treasury to carry equity between runs; default is a fresh one at ACCOUNT_SIZE.
+    news_source: symbol -> recent headlines, for real News; default None (News stays neutral).
     """
     clock = SimClock(cycles_per_day)
     events_path = None
@@ -72,6 +73,7 @@ def build_city(ledger=None, run_dir=None, cycles_per_day=None, treasury=None):
                       treasury=treasury)
     for agent_class in AGENT_CLASSES:
         raphael.register(agent_class())
+    raphael.agents["NewsResearch"].news_source = news_source
     return raphael
 
 
