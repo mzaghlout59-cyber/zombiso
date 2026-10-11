@@ -56,9 +56,9 @@ def new_run_dir(root=None):
     return run_dir
 
 
-def build_city(ledger=None, run_dir=None):
+def build_city(ledger=None, run_dir=None, cycles_per_day=None):
     """Wire up the city. Pass a ledger (tests) or a run_dir; with neither, a new run dir is made."""
-    clock = SimClock()
+    clock = SimClock(cycles_per_day)
     events_path = None
     if ledger is None:
         run_dir = run_dir or new_run_dir()
@@ -77,14 +77,32 @@ def _write_run_file(raphael, name, data):
         (raphael.events.path.parent / name).write_text(json.dumps(data, indent=2), encoding="utf-8")
 
 
-def run_city(feed, cycles=CYCLES, watchlist=None, raphael=None, window=WINDOW, tick_delay=0.0):
-    """tick_delay: seconds to wait after each cycle, so a viewer can follow live."""
+def _prices_now(feed, watchlist):
+    prices = {}
+    for sym in watchlist:
+        try:
+            prices[sym] = feed.get_price(sym)
+        except KeyError:
+            pass  # no data for this symbol yet
+    return prices
+
+
+def run_city(feed, cycles=CYCLES, watchlist=None, raphael=None, window=WINDOW, tick_delay=0.0,
+             warmup=True, close_at_end=False, source="simulated"):
+    """Run the city for a number of cycles.
+
+    tick_delay: seconds per cycle (wall clock), so a viewer can follow live, or so a
+        real-market run takes one cycle every few minutes.
+    warmup: advance the feed `window` times first (simulated feeds start with one price).
+    close_at_end: exit every open trade after the last cycle (market close).
+    """
     raphael = raphael or build_city()
     watchlist = watchlist or list(START_PRICES)
     opened = closed = 0
     if raphael.events.path:
         _write_run_file(raphael, "meta.json", {
             "run_id": raphael.events.path.parent.name,
+            "source": source,
             "cycles": cycles,
             "cycles_per_day": raphael.clock.cycles_per_day,
             "watchlist": watchlist,
@@ -96,13 +114,15 @@ def run_city(feed, cycles=CYCLES, watchlist=None, raphael=None, window=WINDOW, t
         })
 
     # Warm-up: let the market move so every symbol has enough history.
-    for _ in range(window):
-        feed.advance()
+    if warmup:
+        for _ in range(window):
+            feed.advance()
 
+    started = time.monotonic()
     for cycle in range(1, cycles + 1):
         feed.advance()
         raphael.clock.advance()
-        raphael.events.emit("tick", prices={sym: feed.get_price(sym) for sym in watchlist})
+        raphael.events.emit("tick", prices=_prices_now(feed, watchlist))
 
         # 1. Exits first, so realized losses count before new entries
         for t in raphael.tick(feed):
@@ -118,8 +138,14 @@ def run_city(feed, cycles=CYCLES, watchlist=None, raphael=None, window=WINDOW, t
                 opened += 1
                 print(f"[cycle {cycle}] OPENED {sym}")
 
-        if tick_delay:
-            time.sleep(tick_delay)
+        if tick_delay and cycle < cycles:
+            # sleep to the next scheduled cycle, so slow cycles don't drift the schedule
+            time.sleep(max(0.0, started + cycle * tick_delay - time.monotonic()))
+
+    if close_at_end:
+        for t in raphael.close_all(feed):
+            closed += 1
+            print(f"[close] CLOSED {t['symbol']} (end of day) pnl={t['pnl']}")
 
     print(f"\n=== RUN COMPLETE: {cycles} cycles, {raphael.clock.day + 1} day(s) "
           f"| opened={opened} closed={closed} "

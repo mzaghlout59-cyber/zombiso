@@ -125,7 +125,7 @@
         s.realized += e.pnl;
         s.dayPnl[e.day] = (s.dayPnl[e.day] || 0) + e.pnl;
         if (e.pnl >= 0) s.wins++; else s.losses++;
-        const why = e.reason === "take_profit" ? "target hit" : "stopped out";
+        const why = { take_profit: "target hit", stop_loss: "stopped out", end_of_day: "closed at the bell" }[e.reason] || e.reason;
         pushFeed(s, e.tick, `Closed #${e.trade_id} ${e.symbol}, ${why}: ${signed(e.pnl)}`, e.pnl >= 0 ? "win" : "loss");
         break;
       }
@@ -176,7 +176,8 @@
       if (ex) float(ex.x + ex.w / 2, ex.y + 30, `OPEN ${e.size} @ ${e.entry.toFixed(2)}`, C.gold, now);
     } else if (e.kind === "trade_closed") {
       const ex = exchangeOf(e.symbol);
-      if (ex) float(ex.x + ex.w / 2, ex.y + 60, `${e.reason === "take_profit" ? "TARGET" : "STOP"} ${signed(e.pnl)}`, e.pnl >= 0 ? C.green : C.red, now);
+      const tag = { take_profit: "TARGET", stop_loss: "STOP", end_of_day: "BELL" }[e.reason] || "CLOSE";
+      if (ex) float(ex.x + ex.w / 2, ex.y + 60, `${tag} ${signed(e.pnl)}`, e.pnl >= 0 ? C.green : C.red, now);
       glow("Ledgerkeeper", e.pnl >= 0 ? C.green : C.red, now, 500);
     } else if (e.kind === "tick") {
       if (e.day !== (state.prevBannerDay ?? -1)) {
@@ -254,7 +255,8 @@
     $("h-pos").textContent = `${Object.keys(state.open).length}/${meta.max_open_positions}`;
     $("h-trades").textContent = `${state.trades} (${state.wins}W ${state.losses}L)`;
     const mode = $("mode");
-    mode.textContent = isLive() ? "Live" : "Replay";
+    const market = meta.source === "alpaca" ? "Market" : "Sim";
+    mode.textContent = `${market} · ${isLive() ? "Live" : "Replay"}`;
     mode.classList.toggle("live", isLive());
 
     const scrub = $("scrub");

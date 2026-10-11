@@ -74,6 +74,25 @@ class Raphael:
                 log(f"RAPHAEL tick: no price for {sym}, skipping")
         return self.check_exits(prices)
 
+    def close_all(self, feed, reason="end_of_day"):
+        """Exit every open trade at the current price, e.g. at the market close."""
+        closed = []
+        for trade in self.ledger.open_trades():
+            try:
+                price = feed.get_price(trade["symbol"])
+            except KeyError:
+                log(f"RAPHAEL close_all: no price for {trade['symbol']}, left open")
+                continue
+            record = self.ledger.close_trade(trade["id"], price)
+            log(f"RAPHAEL closed trade #{trade['id']} {trade['symbol']} at {price} ({reason}) "
+                f"pnl={record['pnl']}")
+            self.events.emit("trade_closed", trade_id=record["id"], symbol=record["symbol"],
+                             side=record["side"], size=record["size"], entry=record["entry"],
+                             stop_loss=record["stop_loss"], exit=price,
+                             pnl=record["pnl"], reason=reason)
+            closed.append({**record, "exit_reason": reason})
+        return closed
+
     def roster(self):
         for agent in self.agents.values():
             print(f"{agent.division:12} | {agent.name}")
