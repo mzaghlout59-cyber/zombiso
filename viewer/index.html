@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Zombiso AI City</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header id="hud">
+    <div class="brand">Zombiso AI City</div>
+    <div class="stat"><span>Tick</span><b id="h-tick">0</b></div>
+    <div class="stat"><span>Day</span><b id="h-day">1</b></div>
+    <div class="stat"><span>Realized P&amp;L</span><b id="h-pnl">$0.00</b></div>
+    <div class="stat wide">
+      <span>Today vs daily loss limit</span>
+      <div class="bar"><div id="h-today-bar"></div></div>
+      <b id="h-today">$0.00</b>
+    </div>
+    <div class="stat"><span>Positions</span><b id="h-pos">0/3</b></div>
+    <div class="stat"><span>Trades</span><b id="h-trades">0</b></div>
+    <div id="mode" class="pill">Loading</div>
+  </header>
+
+  <main>
+    <div id="stage"><canvas id="city"></canvas><div id="empty" hidden>No run yet. Start one with <code>python run_city.py --delay 0.5</code></div></div>
+    <aside>
+      <section id="ultron">
+        <h2>Ultron, auditor</h2>
+        <div id="u-verdict" class="verdict">Watching</div>
+        <ul id="u-notes"></ul>
+      </section>
+      <section class="feed-wrap">
+        <h2>City feed</h2>
+        <ol id="feed"></ol>
+      </section>
+    </aside>
+  </main>
+
+  <footer id="controls">
+    <button id="b-play" title="Play / pause (space)">Play</button>
+    <button id="b-step" title="Next tick (right arrow)">Step</button>
+    <label>Speed
+      <select id="speed">
+        <option value="0.5">0.5x</option>
+        <option value="1" selected>1x</option>
+        <option value="2">2x</option>
+        <option value="4">4x</option>
+        <option value="8">8x</option>
+      </select>
+    </label>
+    <input type="range" id="scrub" min="0" max="0" value="0" aria-label="Timeline">
+    <span id="scrub-label">0 / 0</span>
+  </footer>
+
+  <script src="city.js"></script>
+</body>
+</html>

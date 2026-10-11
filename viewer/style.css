@@ -1,0 +1,76 @@
+:root {
+  --bg: #070b16;
+  --panel: #0e1526;
+  --panel-2: #141d33;
+  --line: #23304d;
+  --text: #dfe6f5;
+  --muted: #8a97b5;
+  --gold: #f2b84b;
+  --green: #4cd497;
+  --red: #ff6b6b;
+  --amber: #ffb347;
+  --violet: #a78bfa;
+}
+* { box-sizing: border-box; }
+html, body { height: 100%; margin: 0; }
+body {
+  background: var(--bg); color: var(--text);
+  font: 14px/1.4 "Segoe UI", system-ui, -apple-system, sans-serif;
+  display: grid; grid-template-rows: auto 1fr auto; overflow: hidden;
+}
+#hud {
+  display: flex; align-items: center; gap: 22px; padding: 10px 18px;
+  background: var(--panel); border-bottom: 1px solid var(--line); flex-wrap: wrap;
+}
+.brand { font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--gold); margin-right: 8px; }
+.stat { display: flex; flex-direction: column; min-width: 64px; }
+.stat span { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; }
+.stat b { font-size: 17px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.stat.wide { min-width: 210px; }
+.bar { height: 6px; background: var(--panel-2); border-radius: 3px; margin: 4px 0 2px; overflow: hidden; }
+#h-today-bar { height: 100%; width: 0; background: var(--green); transition: width .3s, background .3s; }
+.pos { color: var(--green); } .neg { color: var(--red); }
+.pill {
+  margin-left: auto; padding: 4px 12px; border-radius: 999px; font-size: 12px; font-weight: 600;
+  letter-spacing: .06em; text-transform: uppercase; background: var(--panel-2); color: var(--muted);
+}
+.pill.live { background: #3a1420; color: #ff8fa3; }
+.pill.live::before { content: ""; display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: #ff4d6d; margin-right: 6px; animation: blink 1s infinite; }
+@keyframes blink { 50% { opacity: .2; } }
+
+main { display: grid; grid-template-columns: 1fr 320px; min-height: 0; }
+#stage { position: relative; min-width: 0; min-height: 0; display: flex; align-items: center; justify-content: center; }
+#city { display: block; }
+#empty { position: absolute; color: var(--muted); font-size: 16px; }
+#empty code { color: var(--gold); }
+aside { background: var(--panel); border-left: 1px solid var(--line); display: flex; flex-direction: column; min-height: 0; }
+aside section { padding: 14px 16px; border-bottom: 1px solid var(--line); }
+aside h2 { margin: 0 0 8px; font-size: 12px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .07em; }
+.verdict { font-size: 18px; font-weight: 600; color: var(--violet); }
+.verdict.clean { color: var(--green); } .verdict.bad { color: var(--red); }
+#u-notes { margin: 8px 0 0; padding-left: 16px; color: var(--muted); font-size: 12px; }
+#u-notes li.warn { color: var(--amber); } #u-notes li.bad { color: var(--red); }
+.feed-wrap { flex: 1; min-height: 0; overflow-y: auto; border-bottom: 0; }
+#feed { list-style: none; margin: 0; padding: 0; font-size: 12.5px; }
+#feed li { padding: 5px 0; border-bottom: 1px solid #18223a; color: var(--muted); }
+#feed li .t { color: #5d6a89; margin-right: 6px; font-variant-numeric: tabular-nums; }
+#feed li.open { color: var(--gold); } #feed li.win { color: var(--green); } #feed li.loss { color: var(--red); }
+#feed li.deny { color: #ff9a9a; } #feed li.day { color: var(--violet); font-weight: 600; }
+
+#controls {
+  display: flex; align-items: center; gap: 12px; padding: 10px 18px;
+  background: var(--panel); border-top: 1px solid var(--line);
+}
+#controls button, #controls select {
+  background: var(--panel-2); color: var(--text); border: 1px solid var(--line);
+  border-radius: 6px; padding: 6px 14px; font: inherit; cursor: pointer;
+}
+#controls button:hover { border-color: var(--gold); }
+#controls label { color: var(--muted); display: flex; align-items: center; gap: 6px; }
+#scrub { flex: 1; accent-color: var(--gold); }
+#scrub-label { color: var(--muted); font-variant-numeric: tabular-nums; min-width: 90px; text-align: right; }
+
+@media (max-width: 900px) {
+  main { grid-template-columns: 1fr; grid-template-rows: 1fr 220px; }
+  aside { border-left: 0; border-top: 1px solid var(--line); }
+}

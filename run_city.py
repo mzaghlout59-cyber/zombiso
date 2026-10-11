@@ -8,6 +8,9 @@ config/settings.py still applies.
 Every run gets its own folder under data/runs/ with a fresh ledger and an
 events.jsonl stream, so runs never leak into each other.
 """
+import argparse
+import json
+import time
 from datetime import datetime
 from pathlib import Path
 
@@ -68,10 +71,29 @@ def build_city(ledger=None, run_dir=None):
     return raphael
 
 
-def run_city(feed, cycles=CYCLES, watchlist=None, raphael=None, window=WINDOW):
+def _write_run_file(raphael, name, data):
+    """Save a JSON file next to the run's events.jsonl, if this run has a folder."""
+    if raphael.events.path:
+        (raphael.events.path.parent / name).write_text(json.dumps(data, indent=2), encoding="utf-8")
+
+
+def run_city(feed, cycles=CYCLES, watchlist=None, raphael=None, window=WINDOW, tick_delay=0.0):
+    """tick_delay: seconds to wait after each cycle, so a viewer can follow live."""
     raphael = raphael or build_city()
     watchlist = watchlist or list(START_PRICES)
     opened = closed = 0
+    if raphael.events.path:
+        _write_run_file(raphael, "meta.json", {
+            "run_id": raphael.events.path.parent.name,
+            "cycles": cycles,
+            "cycles_per_day": raphael.clock.cycles_per_day,
+            "watchlist": watchlist,
+            "account_size": settings.ACCOUNT_SIZE,
+            "max_open_positions": settings.MAX_OPEN_POSITIONS,
+            "max_daily_loss": settings.ACCOUNT_SIZE * settings.MAX_DAILY_LOSS_PCT / 100,
+            "max_risk_per_trade": settings.ACCOUNT_SIZE * settings.MAX_RISK_PER_TRADE_PCT / 100,
+            "take_profit_rr": settings.TAKE_PROFIT_RR,
+        })
 
     # Warm-up: let the market move so every symbol has enough history.
     for _ in range(window):
@@ -96,6 +118,9 @@ def run_city(feed, cycles=CYCLES, watchlist=None, raphael=None, window=WINDOW):
                 opened += 1
                 print(f"[cycle {cycle}] OPENED {sym}")
 
+        if tick_delay:
+            time.sleep(tick_delay)
+
     print(f"\n=== RUN COMPLETE: {cycles} cycles, {raphael.clock.day + 1} day(s) "
           f"| opened={opened} closed={closed} "
           f"| open now={len(raphael.ledger.open_trades())} "
@@ -106,11 +131,21 @@ def run_city(feed, cycles=CYCLES, watchlist=None, raphael=None, window=WINDOW):
         print(f"ULTRON VIOLATION (tick {v['tick']}): {v['message']}")
     for w in raphael.audit["warnings"]:
         print(f"ULTRON warning (tick {w['tick']}): {w['message']}")
+    _write_run_file(raphael, "audit.json", raphael.audit)
     return raphael
 
 
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="Run the Zombiso AI City paper-trading simulation.")
+    parser.add_argument("--seed", type=int, default=42, help="market seed (same seed = same run)")
+    parser.add_argument("--cycles", type=int, default=CYCLES, help="number of cycles to run")
+    parser.add_argument("--delay", type=float, default=0.0,
+                        help="seconds per cycle; use e.g. 0.5 to watch live in view_city.py")
+    args = parser.parse_args()
+
     print(f"=== {settings.PROJECT_NAME} | mode: {settings.TRADING_MODE} ===")
     run_dir = new_run_dir()
-    run_city(SimulatedFeed(START_PRICES, seed=42), raphael=build_city(run_dir=run_dir))
+    print(f"Run folder: {run_dir}")
+    run_city(SimulatedFeed(START_PRICES, seed=args.seed), cycles=args.cycles,
+             raphael=build_city(run_dir=run_dir), tick_delay=args.delay)
     print(f"Run saved to {run_dir}")

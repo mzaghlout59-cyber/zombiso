@@ -115,7 +115,7 @@ class Ultron(BaseAgent):
                 "closed": len(closed_pnl),
                 "still_open": len(open_trades),
                 "realized_pnl": round(sum(closed_pnl.values()), 2),
-                "days": len(day_pnl),
+                "trading_days": len(day_pnl),
             },
         }
         verdict = "CLEAN" if report["ok"] else f"{len(violations)} VIOLATION(S)"

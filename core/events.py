@@ -26,7 +26,7 @@ class EventLog:
         }
         self.events.append(event)
         if self.path:
-            with self.path.open("a", encoding="utf-8") as f:
+            with self.path.open("a", encoding="utf-8", newline="\n") as f:
                 f.write(json.dumps(event, default=list) + "\n")
         return event
 
