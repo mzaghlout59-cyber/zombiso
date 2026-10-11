@@ -22,7 +22,7 @@ class MarketResearchAgent(BaseAgent):
     def handle(self, task):
         self.say(f"Researching market for {task.get('symbol')}")
         prices = _prices(task, 2)
-        if prices is None or prices[0] == 0:
+        if prices is None or prices[-2] == 0:
             return {"symbol": task.get("symbol"), "trend": "unknown", "status": "stub"}
         change = (prices[-1] - prices[-2]) / prices[-2]
         if change > self.FLAT_BAND:
@@ -132,27 +132,3 @@ class ChartsAgent(BaseAgent):
             pattern = "none"
 
         return {"symbol": task.get("symbol"), "pattern": pattern, "status": "simulated"}
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

@@ -1,3 +1,4 @@
+from config import settings
 from core.logger import log
 from core.exits import exit_signal
 from core.ledger import PaperLedger
@@ -92,7 +93,11 @@ class Raphael:
         risk = self.dispatch(self.RISK_AGENT, risk_task)
 
         approved = risk.get("approved", False) is True
-        executed = approved and recommendation["action"] != "hold"
+        confident = recommendation["confidence"] >= settings.MIN_SAGE_CONFIDENCE
+        if approved and not confident:
+            log(f"RAPHAEL skipped trade: Sage confidence {recommendation['confidence']} "
+                f"below {settings.MIN_SAGE_CONFIDENCE}")
+        executed = approved and confident and recommendation["action"] != "hold"
         if executed and trade:
             record = self.ledger.open_trade(
                 symbol=task.get("symbol"),
