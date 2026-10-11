@@ -7,6 +7,7 @@
   const W = 1200, H = 720;
   const TICK_MS = 1400;            // one city tick at 1x speed
   const SPARK_POINTS = 60;         // price history shown per exchange
+  const FLOAT_LIFE = 1800;         // ms a floating label stays up
   const canvas = document.getElementById("city");
   const ctx = canvas.getContext("2d");
   const $ = (id) => document.getElementById(id);
@@ -57,6 +58,7 @@
   let state = null, applied = 0, P = 0, playing = true, speed = 1, dragging = false;
   let fx = freshFx();
   let stars = makeStars();
+  let mode3d = false;  // 3D view on? (renderer lives in viewer/city3d.js)
 
   function freshFx() { return { particles: [], glows: {}, floats: [], banner: null, eyeTarget: null, pulse: 0 }; }
 
@@ -394,7 +396,18 @@
     return (((state.tick - 1) % cpd) + (P % 1)) / cpd;
   }
 
+  function pruneFx(now) {
+    fx.particles = fx.particles.filter((p) => now - p.t0 < p.dur);
+    fx.floats = fx.floats.filter((f) => now - f.t0 < FLOAT_LIFE);
+  }
+
   function draw(now) {
+    pruneFx(now);
+    if (mode3d) {
+      const r3 = current3d();
+      if (r3 && state) r3.render(now);
+      return;
+    }
     ctx.clearRect(0, 0, W, H);
     if (!meta || !state) return;
     const ph = dayPhase();
@@ -436,16 +449,20 @@
     ctx.stroke(); ctx.setLineDash([]);
   }
 
-  function drawRoads(now) {
-    for (const s of ["Scout", "News", "Pulse", "Lens", "Research"]) road([center(s), center("Sage")]);
-    road([center("Sage"), center("Raphael")], 10);
-    road([center("Axiom"), center("Raphael")], 10);
-    road([center("Raphael"), center("Aegis")], 12);
-    road([center("Ledgerkeeper"), center("Aegis")], 5);
-    road([center("Scorekeeper"), center("Aegis")], 5);
+  // Every road as [points, width]; shared by the 2D and 3D views.
+  function roadPaths() {
+    const roads = ["Scout", "News", "Pulse", "Lens", "Research"].map((s) => [[center(s), center("Sage")], 8]);
+    roads.push([[center("Sage"), center("Raphael")], 10], [[center("Axiom"), center("Raphael")], 10],
+               [[center("Raphael"), center("Aegis")], 12],
+               [[center("Ledgerkeeper"), center("Aegis")], 5], [[center("Scorekeeper"), center("Aegis")], 5]);
     const first = exchanges()[0];  // the vault joins the exchange road at the first exchange
-    if (first) road([center("Vault"), { x: PLACES.Vault.x, y: 385 }, { x: first.x + first.w / 2, y: 385 }], 8);
-    for (const ex of exchanges()) road([center("Aegis"), ...aegisToExchange(ex.sym)], 10);
+    if (first) roads.push([[center("Vault"), { x: PLACES.Vault.x, y: 385 }, { x: first.x + first.w / 2, y: 385 }], 8]);
+    for (const ex of exchanges()) roads.push([[center("Aegis"), ...aegisToExchange(ex.sym)], 10]);
+    return roads;
+  }
+
+  function drawRoads(now) {
+    for (const [pts, width] of roadPaths()) road(pts, width);
     // Ultron's line of sight to headquarters
     const flick = Math.max(0, 1 - (now - fx.pulse) / 400);
     ctx.strokeStyle = `rgba(167,139,250,${0.25 + 0.5 * flick})`;
@@ -611,11 +628,11 @@
     return pts[pts.length - 1];
   }
 
+  const ease = (t) => (t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2);
+
   function drawParticles(now) {
-    fx.particles = fx.particles.filter((p) => now - p.t0 < p.dur);
     for (const p of fx.particles) {
-      const t = (now - p.t0) / p.dur;
-      const e = t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
+      const e = ease((now - p.t0) / p.dur);
       ctx.save(); ctx.shadowColor = p.color; ctx.shadowBlur = 16; ctx.fillStyle = p.color;
       for (let k = 3; k >= 0; k--) {
         const q = pointOn(p.pts, Math.max(0, e - k * 0.04));
@@ -627,10 +644,8 @@
   }
 
   function drawFloats(now) {
-    const LIFE = 1800;
-    fx.floats = fx.floats.filter((f) => now - f.t0 < LIFE);
     for (const f of fx.floats) {
-      const t = (now - f.t0) / LIFE;
+      const t = (now - f.t0) / FLOAT_LIFE;
       ctx.globalAlpha = 1 - t * t;
       text(f.text, f.x, f.y - t * 34, 14, f.color, 700);
     }
@@ -690,6 +705,47 @@
       setTimeout(poll, audit ? 2500 : 700);
     }
   }
+
+  // ---------- 3D view, loaded on first use ----------
+  const handles = {
+    W, H, C, PLACES, SPARK_POINTS, FLOAT_LIFE,
+    exchanges, center, roadPaths, pointOn, ease, dayPhase, money,
+    get state() { return state; }, get fx() { return fx; }, get meta() { return meta; },
+    get audit() { return audit; }, get done() { return !!audit && P >= groups.length; },
+  };
+  let module3d = null, renderer3d = null, renderer3dRun = null;
+  async function setView(mode) {
+    const btn = $("b-view");
+    if (mode === "3d" && !module3d) {
+      btn.textContent = "Loading 3D...";
+      try {
+        module3d = await import("./city3d.js");  // pulls three.js from the CDN on first use
+      } catch (err) {
+        console.warn("3D view unavailable", err);
+        btn.textContent = "3D unavailable (offline?)";
+        return;
+      }
+    }
+    mode3d = mode === "3d";
+    $("city").hidden = mode3d;
+    $("city3d").hidden = !mode3d;
+    btn.textContent = mode3d ? "2D view" : "3D view";
+    try { localStorage.setItem("zcity-view", mode); } catch { /* storage blocked: fine */ }
+  }
+
+  // The 3D scene is built once the run's data is in, and rebuilt when a new run starts
+  // (a new run can have a different watchlist, so different exchanges).
+  function current3d() {
+    if (!mode3d || !module3d || !meta) return null;
+    if (!renderer3d || renderer3dRun !== runId) {
+      if (renderer3d) renderer3d.dispose();
+      renderer3d = module3d.create($("city3d"), handles);
+      renderer3dRun = runId;
+    }
+    return renderer3d;
+  }
+  $("b-view").addEventListener("click", () => setView(mode3d ? "2d" : "3d"));
+  try { if (localStorage.getItem("zcity-view") === "3d") setView("3d"); } catch { /* ignore */ }
 
   // ---------- controls ----------
   $("b-play").addEventListener("click", () => {

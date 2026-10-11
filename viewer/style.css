@@ -41,6 +41,10 @@ body {
 main { display: grid; grid-template-columns: minmax(0, 1fr) 320px; min-height: 0; }
 #stage { position: relative; min-width: 0; min-height: 0; overflow: hidden; display: flex; align-items: center; justify-content: center; }
 #city { display: block; }
+#city[hidden], #city3d[hidden] { display: none; }
+#city3d { position: absolute; inset: 0; }
+#city3d canvas { position: absolute; inset: 0; display: block; }
+#city3d canvas.overlay { pointer-events: none; }
 #empty { position: absolute; color: var(--muted); font-size: 16px; }
 #empty code { color: var(--gold); }
 aside { background: var(--panel); border-left: 1px solid var(--line); display: flex; flex-direction: column; min-height: 0; }
