@@ -5,6 +5,7 @@ from core.logger import log
 from core.exits import exit_signal
 from core.ledger import PaperLedger
 from core.sage import Sage
+from core.treasury import Treasury
 
 
 class Raphael:
@@ -13,10 +14,12 @@ class Raphael:
     RISK_AGENT = "Aegis"
     ALIASES = {"Strategy": "Strategist"}
     BOOK_REPORTERS = ("PortfolioManager", "PerformanceAnalyst")  # Aegis's squad
+    DIVISION = "Investment"  # the division whose trades Raphael runs
 
-    def __init__(self, ledger=None, clock=None, events=None):
+    def __init__(self, ledger=None, clock=None, events=None, treasury=None):
         self.agents = {}
         self.sage = Sage()
+        self.treasury = treasury or Treasury()
         self.clock = clock or SimClock()
         self.ledger = ledger or PaperLedger(clock=self.clock)
         if self.ledger.clock is None:
@@ -52,6 +55,7 @@ class Raphael:
             reason = exit_signal(trade, price)
             if reason:
                 record = self.ledger.close_trade(trade["id"], price)
+                self.treasury.record(record["pnl"])
                 log(f"RAPHAEL closed trade #{trade['id']} {trade['symbol']} "
                     f"at {price} ({reason}) pnl={record['pnl']}")
                 self.events.emit("trade_closed", trade_id=record["id"], symbol=record["symbol"],
@@ -86,6 +90,7 @@ class Raphael:
                 log(f"RAPHAEL close_all: no price for {trade['symbol']}, left open")
                 continue
             record = self.ledger.close_trade(trade["id"], price)
+            self.treasury.record(record["pnl"])
             log(f"RAPHAEL closed trade #{trade['id']} {trade['symbol']} at {price} ({reason}) "
                 f"pnl={record['pnl']}")
             self.events.emit("trade_closed", trade_id=record["id"], symbol=record["symbol"],
@@ -100,7 +105,7 @@ class Raphael:
 
         Returns {agent_name: report}. Reports only; nothing here changes a trade.
         """
-        task = {"trades": self.ledger.trades}
+        task = {"trades": self.ledger.trades, "capital": self.treasury.capital_for(self.DIVISION)}
         return {name: self.dispatch(name, task)
                 for name in self.BOOK_REPORTERS if name in self.agents}
 
@@ -116,7 +121,9 @@ class Raphael:
         steps = self.sage.plan(goal)
         print(f"Sage plan: {steps}")
 
-        # 2. Raphael executes the plan
+        # 2. Raphael executes the plan, on the capital the Treasury allots
+        capital = self.treasury.capital_for(self.DIVISION)
+        task = {**task, "capital": capital}
         results = {}
         for step in steps:
             results[step] = self.dispatch(self.ALIASES.get(step, step), task)
@@ -129,6 +136,7 @@ class Raphael:
         trade = (results.get("Strategy") or {}).get("trade")
         risk_task = {**task, "recommendation": recommendation, "trade": trade}
         aegis = self.agents[self.RISK_AGENT]
+        aegis.account = capital
         aegis.open_positions = self.ledger.open_positions()
         aegis.daily_pnl = self.ledger.daily_pnl()
         aegis.open_symbols = self.ledger.open_symbols()
@@ -145,7 +153,7 @@ class Raphael:
                          action=recommendation["action"],
                          confidence=recommendation["confidence"],
                          approved=approved, risk_reason=risk.get("reason"),
-                         executed=bool(executed and trade))
+                         executed=bool(executed and trade), capital=capital)
         if executed and trade:
             record = self.ledger.open_trade(
                 symbol=task.get("symbol"),
@@ -157,7 +165,7 @@ class Raphael:
             log(f"RAPHAEL recorded paper trade #{record['id']} in ledger")
             self.events.emit("trade_opened", trade_id=record["id"], symbol=record["symbol"],
                              side=record["side"], size=record["size"], entry=record["entry"],
-                             stop_loss=record["stop_loss"])
+                             stop_loss=record["stop_loss"], capital=capital)
         decision = {
             "goal": goal,
             "recommendation": recommendation,

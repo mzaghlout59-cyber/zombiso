@@ -16,7 +16,9 @@ ALPACA_API_KEY = os.getenv("ALPACA_API_KEY", "")
 ALPACA_SECRET_KEY = os.getenv("ALPACA_SECRET_KEY", "")
 
 # --- Aegis risk limits (paper trading) ---
-ACCOUNT_SIZE = 10_000.0           # paper account size in USD
+ACCOUNT_SIZE = 10_000.0           # starting paper equity in USD; the Treasury tracks it from here
+# Share of equity each trading division may size its trades on (must add up to <= 1.0)
+TREASURY_ALLOCATIONS = {"Investment": 1.0}
 MAX_RISK_PER_TRADE_PCT = 0.25     # % of account risked per trade
 MAX_DAILY_LOSS_PCT = 1.0          # % of account, then Aegis halts trading for the day
 MAX_OPEN_POSITIONS = 3

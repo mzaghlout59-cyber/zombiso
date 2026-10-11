@@ -17,6 +17,7 @@ class AegisAgent(BaseAgent):
     purpose = "Risk manager: default-deny veto over every trade; a trade passes only if every rule passes."
 
     def __init__(self):
+        self.account = settings.ACCOUNT_SIZE  # capital the Treasury allots; Raphael updates it
         self.open_positions = 0
         self.daily_pnl = 0.0  # realized P&L today, in USD (negative = loss)
         self.open_symbols = set()  # symbols already held
@@ -36,7 +37,7 @@ class AegisAgent(BaseAgent):
 
     def evaluate(self, symbol, trade):
         """trade = {"entry": float, "stop_loss": float|None, "size": float}"""
-        account = settings.ACCOUNT_SIZE
+        account = self.account
 
         # Rule 1: kill switch. Daily loss limit reached.
         max_daily_loss = account * settings.MAX_DAILY_LOSS_PCT / 100

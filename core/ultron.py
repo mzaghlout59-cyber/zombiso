@@ -25,9 +25,18 @@ class Ultron(BaseAgent):
     def audit(self, events, ledger=None):
         """events: an EventLog or a list of event dicts. ledger: optional PaperLedger to cross-check."""
         events = getattr(events, "events", events)
-        account = settings.ACCOUNT_SIZE
-        max_risk = account * settings.MAX_RISK_PER_TRADE_PCT / 100
-        max_daily_loss = account * settings.MAX_DAILY_LOSS_PCT / 100
+        # Ultron replays the Treasury himself: capital = (start equity + realized P&L) x share.
+        start_equity, share = settings.ACCOUNT_SIZE, 1.0
+        realized = 0.0
+
+        def capital_now():
+            return round((start_equity + realized) * share, 2)
+
+        def max_risk(capital):
+            return capital * settings.MAX_RISK_PER_TRADE_PCT / 100
+
+        def max_daily_loss(capital):
+            return capital * settings.MAX_DAILY_LOSS_PCT / 100
 
         violations, warnings = [], []
         open_trades = {}           # trade_id -> trade_opened event
@@ -42,8 +51,19 @@ class Ultron(BaseAgent):
                            "tick": event["tick"] if event else None,
                            "message": message})
 
+        seen_treasury = False
         for e in events:
             kind = e["kind"]
+
+            if kind == "treasury" and not seen_treasury:
+                seen_treasury = True
+                start_equity = e["equity"]
+                share = e["allocations"].get(e["division"], 0.0)
+
+            if kind in ("decision", "trade_opened") and "capital" in e:
+                if abs(e["capital"] - capital_now()) > 0.011:
+                    flag(violations, e, f"{e['symbol']} {kind} used capital ${e['capital']:.2f}, "
+                                        f"the Treasury replay says ${capital_now():.2f}")
 
             if kind == "decision":
                 last_decision[e["symbol"]] = e
@@ -70,33 +90,36 @@ class Ultron(BaseAgent):
                     if wrong_side:
                         flag(violations, e, f"trade #{e['trade_id']} {sym} stop is on the wrong side of entry")
                     risk = abs(entry - stop) * e["size"] * settings.STOP_GAP_BUFFER
-                    if risk > max_risk + 1e-9:
+                    if risk > max_risk(capital_now()) + 1e-9:
                         flag(violations, e, f"trade #{e['trade_id']} {sym} worst-case risk "
-                                            f"${risk:.2f} > ${max_risk:.2f}")
+                                            f"${risk:.2f} > ${max_risk(capital_now()):.2f}")
 
                 if len(open_trades) >= settings.MAX_OPEN_POSITIONS:
                     flag(violations, e, f"trade #{e['trade_id']} {sym} opened with "
                                         f"{len(open_trades)} positions already open")
                 if sym in {t["symbol"] for t in open_trades.values()}:
                     flag(violations, e, f"trade #{e['trade_id']} {sym} stacked on an open {sym} position")
-                if day_pnl[e["day"]] <= -max_daily_loss:
+                if day_pnl[e["day"]] <= -max_daily_loss(capital_now()):
                     flag(violations, e, f"trade #{e['trade_id']} {sym} opened after the daily loss "
                                         f"limit was hit (day {e['day']} pnl {day_pnl[e['day']]:.2f})")
                 if day_max_streak[e["day"]] >= settings.MAX_LOSS_STREAK:
                     flag(violations, e, f"trade #{e['trade_id']} {sym} opened after a losing streak of "
                                         f"{day_max_streak[e['day']]} on day {e['day']}")
-                open_trades[e["trade_id"]] = e
+                open_trades[e["trade_id"]] = {**e, "limit": max_risk(capital_now())}
 
             elif kind == "trade_closed":
-                if open_trades.pop(e["trade_id"], None) is None:
+                opened = open_trades.pop(e["trade_id"], None)
+                if opened is None:
                     flag(violations, e, f"trade #{e['trade_id']} closed but was never open")
+                limit = opened["limit"] if opened else max_risk(capital_now())
                 direction = 1 if e["side"] == "buy" else -1
                 expected = round((e["exit"] - e["entry"]) * e["size"] * direction, 2)
                 if e["pnl"] != expected:
                     flag(violations, e, f"trade #{e['trade_id']} pnl {e['pnl']} should be {expected}")
-                if e["pnl"] < -max_risk:
+                if e["pnl"] < -limit:
                     flag(warnings, e, f"trade #{e['trade_id']} {e['symbol']} lost ${-e['pnl']:.2f}, "
-                                      f"over the ${max_risk:.2f} limit (stop gapped)")
+                                      f"over the ${limit:.2f} limit (stop gapped)")
+                realized += e["pnl"]
                 closed_pnl[e["trade_id"]] = e["pnl"]
                 day_pnl[e["day"]] += e["pnl"]
                 day_streak[e["day"]] = day_streak[e["day"]] + 1 if e["pnl"] <= 0 else 0

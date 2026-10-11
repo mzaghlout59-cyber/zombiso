@@ -66,7 +66,7 @@ class PortfolioManagerAgent(BaseAgent):
         open_trades = [t for t in task.get("trades", []) if t["status"] == "open"]
         exposure = sum(t["entry"] * t["size"] for t in open_trades)
         at_risk = sum(abs(t["entry"] - t["stop_loss"]) * t["size"] for t in open_trades)
-        account = settings.ACCOUNT_SIZE
+        account = task.get("capital", settings.ACCOUNT_SIZE)
         return {
             "positions": len(open_trades),
             "symbols": sorted(t["symbol"] for t in open_trades),

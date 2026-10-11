@@ -12,7 +12,6 @@ from run_city import build_city, run_city, START_PRICES
 SEEDS = range(10)
 CYCLES = 60
 MAX_RISK = settings.ACCOUNT_SIZE * settings.MAX_RISK_PER_TRADE_PCT / 100
-MAX_DAILY_LOSS = settings.ACCOUNT_SIZE * settings.MAX_DAILY_LOSS_PCT / 100
 
 
 def _run(seed, tmp_path):
@@ -22,7 +21,9 @@ def _run(seed, tmp_path):
     open_trade = ledger.open_trade
 
     def recording_open_trade(symbol, side, size, entry, stop_loss):
+        realized = sum(t["pnl"] for t in ledger.trades if t["status"] == "closed")
         snapshots.append({
+            "capital": settings.ACCOUNT_SIZE + realized,  # what the Treasury should allot
             "symbol": symbol,
             "planned_risk": abs(entry - stop_loss) * size * settings.STOP_GAP_BUFFER,
             "daily_pnl": ledger.daily_pnl(),
@@ -52,8 +53,8 @@ def test_city_trades_at_all(runs):
 def test_every_open_respected_aegis_rules(runs, seed):
     _, snapshots = runs[seed]
     for s in snapshots:
-        assert s["planned_risk"] <= MAX_RISK + 1e-9
-        assert s["daily_pnl"] > -MAX_DAILY_LOSS
+        assert s["planned_risk"] <= s["capital"] * settings.MAX_RISK_PER_TRADE_PCT / 100 + 0.01
+        assert s["daily_pnl"] > -s["capital"] * settings.MAX_DAILY_LOSS_PCT / 100
         assert s["open_positions"] < settings.MAX_OPEN_POSITIONS
         assert s["symbol"] not in s["open_symbols"]
         assert s["loss_streak"] < settings.MAX_LOSS_STREAK

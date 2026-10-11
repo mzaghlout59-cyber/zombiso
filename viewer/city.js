@@ -31,6 +31,7 @@
     Ledgerkeeper: { x: 870,  y: 95,  w: 110, h: 52, title: "Ledgerkeeper", sub: "exposure", kind: "squad" },
     Scorekeeper:  { x: 995,  y: 95,  w: 110, h: 52, title: "Scorekeeper", sub: "win rate", kind: "squad" },
     Ultron:       { x: 1125, y: 200, w: 70,  h: 170, title: "Ultron", sub: "auditor", kind: "tower" },
+    Vault:        { x: 110,  y: 300, w: 130, h: 64, title: "Treasury", sub: "the vault", kind: "bank" },
   };
   const AGENT_ALIAS = {
     MarketResearch: "Scout", NewsResearch: "News", Sentiment: "Pulse",
@@ -91,7 +92,8 @@
     const prices = {};
     (meta.watchlist || []).forEach((s) => (prices[s] = []));
     return { tick: 0, day: 0, prices, open: {}, realized: 0, dayPnl: {}, trades: 0,
-             wins: 0, losses: 0, decisions: {}, feed: [], seenDay: -1, book: null, score: null };
+             wins: 0, losses: 0, decisions: {}, feed: [], seenDay: -1, book: null, score: null,
+             startEquity: meta.start_equity || meta.account_size || 10000 };
   }
 
   const money = (v) => (v < 0 ? "-$" : "$") + Math.abs(v).toFixed(2);
@@ -105,6 +107,9 @@
   // ---------- state: pure replay of one event ----------
   function apply(e, s) {
     switch (e.kind) {
+      case "treasury":
+        s.startEquity = e.equity;
+        break;
       case "agent_report":
         if (e.agent === "PortfolioManager") s.book = e.result;
         if (e.agent === "PerformanceAnalyst") s.score = e.result;
@@ -154,6 +159,11 @@
     return [{ x: 930, y: 385 }, { x: cx, y: 385 }, { x: cx, y: ex.y }];
   }
 
+  function vaultPath(ex) {
+    const cx = ex.x + ex.w / 2, v = PLACES.Vault;
+    return [{ x: cx, y: 385 }, { x: v.x, y: 385 }, { x: v.x, y: v.y + v.h / 2 }];
+  }
+
   function animate(e, now) {
     fx.pulse = now;
     if (e.kind === "agent_report") {
@@ -186,7 +196,12 @@
     } else if (e.kind === "trade_closed") {
       const ex = exchangeOf(e.symbol);
       const tag = { take_profit: "TARGET", stop_loss: "STOP", end_of_day: "BELL" }[e.reason] || "CLOSE";
-      if (ex) float(ex.x + ex.w / 2, ex.y + 60, `${tag} ${signed(e.pnl)}`, e.pnl >= 0 ? C.green : C.red, now);
+      const color = e.pnl >= 0 ? C.green : C.red;
+      if (ex) {
+        float(ex.x + ex.w / 2, ex.y + 60, `${tag} ${signed(e.pnl)}`, color, now);
+        travel({ x: ex.x + ex.w / 2, y: ex.y }, vaultPath(ex), color, now, { slow: 1.6, size: 6 });
+      }
+      glow("Vault", color, now, 1200);
     } else if (e.kind === "tick") {
       if (e.day !== (state.prevBannerDay ?? -1)) {
         fx.banner = { text: `Day ${e.day + 1}`, t0: now };
@@ -277,6 +292,8 @@
     $("h-tick").textContent = state.tick;
     $("h-day").textContent = state.day + 1;
     setNum("h-pnl", state.realized, money);
+    $("h-equity").textContent = "$" + (state.startEquity + state.realized)
+      .toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
     const today = state.dayPnl[state.day] || 0;
     setNum("h-today", today, money);
     const bar = $("h-today-bar");
@@ -388,6 +405,8 @@
     road([center("Raphael"), center("Aegis")], 12);
     road([center("Ledgerkeeper"), center("Aegis")], 5);
     road([center("Scorekeeper"), center("Aegis")], 5);
+    const first = exchanges()[0];  // the vault joins the exchange road at the first exchange
+    if (first) road([center("Vault"), { x: PLACES.Vault.x, y: 385 }, { x: first.x + first.w / 2, y: 385 }], 8);
     for (const ex of exchanges()) road([center("Aegis"), ...aegisToExchange(ex.sym)], 10);
     // Ultron's line of sight to headquarters
     const flick = Math.max(0, 1 - (now - fx.pulse) / 400);
@@ -441,6 +460,13 @@
     } else if (p.kind === "tower") {
       box(x + 12, y + 40, p.w - 24, p.h - 40, 4, C.panel, active ? g.color : C.stroke);
       box(x, y, p.w, 50, 10, C.panelHi, C.violet, 1.5);
+    } else if (p.kind === "bank") {
+      // a classical bank front: pediment roof over columns
+      ctx.beginPath();
+      ctx.moveTo(x - 6, y + 14); ctx.lineTo(p.x, y - 10); ctx.lineTo(x + p.w + 6, y + 14); ctx.closePath();
+      ctx.fillStyle = C.panelHi; ctx.fill();
+      ctx.strokeStyle = active ? g.color : C.gold; ctx.lineWidth = active ? 3 : 1.5; ctx.stroke();
+      box(x, y + 14, p.w, p.h - 14, 4, C.panel, active ? g.color : C.gold, active ? 3 : 1.5);
     } else {
       box(x, y, p.w, p.h, p.kind === "squad" ? 8 : 10, p.kind === "hq" ? C.panelHi : C.panel,
           active ? g.color : (p.kind === "hq" ? C.gold : C.stroke), active ? 3 : (p.kind === "hq" ? 2 : 1.5));
@@ -455,9 +481,10 @@
       text(p.sub, p.x, y + p.h + 30, 11, C.muted);
       return;
     }
-    const ty = p.kind === "gate" ? p.y - 14 : p.y - (p.h > 60 ? 12 : 8);
+    const ty = p.kind === "gate" ? p.y - 14 : p.kind === "bank" ? p.y : p.y - (p.h > 60 ? 12 : 8);
     text(p.title, p.x, ty, p.kind === "squad" ? 13 : 16, titleColor, 600);
     let sub = p.sub;
+    if (p.kind === "bank" && state) sub = money(state.startEquity + state.realized);
     if (p.stub) sub += " (stub)";
     text(sub, p.x, ty + 18, 11, C.muted);
   }

@@ -56,8 +56,11 @@ def new_run_dir(root=None):
     return run_dir
 
 
-def build_city(ledger=None, run_dir=None, cycles_per_day=None):
-    """Wire up the city. Pass a ledger (tests) or a run_dir; with neither, a new run dir is made."""
+def build_city(ledger=None, run_dir=None, cycles_per_day=None, treasury=None):
+    """Wire up the city. Pass a ledger (tests) or a run_dir; with neither, a new run dir is made.
+
+    treasury: a Treasury to carry equity between runs; default is a fresh one at ACCOUNT_SIZE.
+    """
     clock = SimClock(cycles_per_day)
     events_path = None
     if ledger is None:
@@ -65,7 +68,8 @@ def build_city(ledger=None, run_dir=None, cycles_per_day=None):
         ledger = PaperLedger(Path(run_dir) / "ledger.json", clock=clock)
     if run_dir:
         events_path = Path(run_dir) / "events.jsonl"
-    raphael = Raphael(ledger=ledger, clock=clock, events=EventLog(clock=clock, path=events_path))
+    raphael = Raphael(ledger=ledger, clock=clock, events=EventLog(clock=clock, path=events_path),
+                      treasury=treasury)
     for agent_class in AGENT_CLASSES:
         raphael.register(agent_class())
     return raphael
@@ -111,7 +115,10 @@ def run_city(feed, cycles=CYCLES, watchlist=None, raphael=None, window=WINDOW, t
             "max_daily_loss": settings.ACCOUNT_SIZE * settings.MAX_DAILY_LOSS_PCT / 100,
             "max_risk_per_trade": settings.ACCOUNT_SIZE * settings.MAX_RISK_PER_TRADE_PCT / 100,
             "take_profit_rr": settings.TAKE_PROFIT_RR,
+            "start_equity": raphael.treasury.equity,
         })
+    raphael.events.emit("treasury", equity=raphael.treasury.equity,
+                        allocations=raphael.treasury.allocations, division=raphael.DIVISION)
 
     # Warm-up: let the market move so every symbol has enough history.
     if warmup:

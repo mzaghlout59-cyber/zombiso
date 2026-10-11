@@ -18,10 +18,14 @@ import time
 from datetime import datetime
 
 from config import settings
+from pathlib import Path
+
 from core.alpaca import AlpacaError, AlpacaFeed, market_clock
+from core.treasury import Treasury
 from run_city import START_PRICES, WINDOW, build_city, new_run_dir, run_city
 
 CLOSE_BUFFER_S = 60  # stop this long before the closing bell
+TREASURY_PATH = Path("data/treasury.json")  # equity carried from one market day to the next
 
 
 def plan_session(clock, interval, max_wait_hours):
@@ -89,9 +93,13 @@ def main(argv=None):
     feed.load_history(WINDOW)
     run_dir = new_run_dir()
     print(f"Session: {cycles} cycles, one every {args.interval}s | run folder {run_dir}")
-    raphael = build_city(run_dir=run_dir, cycles_per_day=cycles)
+    treasury = Treasury(path=TREASURY_PATH)
+    print(f"Treasury: starting equity ${treasury.equity:,.2f}")
+    raphael = build_city(run_dir=run_dir, cycles_per_day=cycles, treasury=treasury)
     run_city(feed, cycles=cycles, watchlist=symbols, raphael=raphael, tick_delay=args.interval,
              warmup=False, close_at_end=True, source="alpaca")
+    day = treasury.settle(run_dir.name)
+    print(f"Treasury: day P&L ${day['pnl']:+,.2f}, equity now ${day['end_equity']:,.2f}")
     print(f"Session saved to {run_dir}")
     return 0 if raphael.audit["ok"] else 2
 
