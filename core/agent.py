@@ -5,7 +5,7 @@ from core.logger import log
 class Agent:
     def __init__(self, name):
         self.name = name
-        self.balance = settings.STARTING_BALANCE
+        self.balance = settings.ACCOUNT_SIZE
 
     def report(self):
         print(f"Agent {self.name} has balance {self.balance}")
