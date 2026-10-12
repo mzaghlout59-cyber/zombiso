@@ -74,7 +74,12 @@ aside h2 { margin: 0 0 8px; font-size: 12px; font-weight: 600; color: var(--mute
   background: var(--panel-2); color: var(--text); border: 1px solid var(--line);
   border-radius: 6px; padding: 6px 14px; font: inherit; cursor: pointer;
 }
-#controls button:hover { border-color: var(--gold); }
+#controls button:hover, #controls a.button:hover { border-color: var(--gold); }
+#controls a.button {
+  background: var(--gold); color: #1a1405; border: 1px solid var(--gold); border-radius: 6px;
+  padding: 6px 14px; text-decoration: none; font-weight: 600;
+}
+#controls a.button[hidden] { display: none; }
 #controls label { color: var(--muted); display: flex; align-items: center; gap: 6px; }
 #scrub { flex: 1; accent-color: var(--gold); }
 #scrub-label { color: var(--muted); font-variant-numeric: tabular-nums; min-width: 90px; text-align: right; }

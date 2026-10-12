@@ -153,7 +153,8 @@ class Raphael:
                          action=recommendation["action"],
                          confidence=recommendation["confidence"],
                          approved=approved, risk_reason=risk.get("reason"),
-                         executed=bool(executed and trade), capital=capital)
+                         executed=bool(executed and trade), capital=capital,
+                         reasoning=recommendation.get("reasoning", ""))
         if executed and trade:
             record = self.ledger.open_trade(
                 symbol=task.get("symbol"),

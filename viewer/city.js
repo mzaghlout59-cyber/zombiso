@@ -341,6 +341,7 @@
     bar.style.background = today < 0 ? (frac > 0.75 ? C.red : C.amber) : C.green;
     $("h-pos").textContent = `${Object.keys(state.open).length}/${meta.max_open_positions}`;
     $("h-trades").textContent = `${state.trades} (${state.wins}W ${state.losses}L)`;
+    $("b-report").hidden = !audit;  // the report is written when the run finishes
     const mode = $("mode");
     const market = meta.source === "alpaca" ? "Market" : "Sim";
     mode.textContent = `${market} · ${isLive() ? "Live" : "Replay"}`;

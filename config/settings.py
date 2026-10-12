@@ -15,6 +15,12 @@ ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY", "")
 ALPACA_API_KEY = os.getenv("ALPACA_API_KEY", "")
 ALPACA_SECRET_KEY = os.getenv("ALPACA_SECRET_KEY", "")
 
+# --- What the city watches ---
+# Stock symbols the city evaluates every cycle. Add any US stock Alpaca has data for,
+# e.g. "AMZN", "GOOGL", "META", "TSLA", "AMD", "SPY". Aegis still allows only
+# MAX_OPEN_POSITIONS trades at once, however long this list is.
+WATCHLIST = ["AAPL", "MSFT", "NVDA"]
+
 # --- Aegis risk limits (paper trading) ---
 ACCOUNT_SIZE = 10_000.0           # starting paper equity in USD; the Treasury tracks it from here
 # Share of equity each trading division may size its trades on (must add up to <= 1.0)

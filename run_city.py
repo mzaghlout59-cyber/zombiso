@@ -20,6 +20,7 @@ from core.events import EventLog
 from core.ledger import PaperLedger
 from core.raphael import Raphael
 from core.prices import SimulatedFeed
+from core.report import headline as report_headline, write_report
 from core.ultron import Ultron
 from divisions.investment.agents import (
     MarketResearchAgent,
@@ -32,7 +33,7 @@ from divisions.investment.agents import (
 from divisions.investment.strategist import StrategistAgent
 from divisions.investment.aegis import AegisAgent
 
-START_PRICES = {"AAPL": 100.0, "MSFT": 100.0, "NVDA": 100.0}
+START_PRICES = {sym: 100.0 for sym in settings.WATCHLIST}  # simulated markets start every stock at $100
 CYCLES = 30
 WINDOW = 6  # how many recent prices the Strategist sees
 RUNS_DIR = Path("data/runs")
@@ -105,20 +106,20 @@ def run_city(feed, cycles=CYCLES, watchlist=None, raphael=None, window=WINDOW, t
     raphael = raphael or build_city()
     watchlist = watchlist or list(START_PRICES)
     opened = closed = 0
-    if raphael.events.path:
-        _write_run_file(raphael, "meta.json", {
-            "run_id": raphael.events.path.parent.name,
-            "source": source,
-            "cycles": cycles,
-            "cycles_per_day": raphael.clock.cycles_per_day,
-            "watchlist": watchlist,
-            "account_size": settings.ACCOUNT_SIZE,
-            "max_open_positions": settings.MAX_OPEN_POSITIONS,
-            "max_daily_loss": settings.ACCOUNT_SIZE * settings.MAX_DAILY_LOSS_PCT / 100,
-            "max_risk_per_trade": settings.ACCOUNT_SIZE * settings.MAX_RISK_PER_TRADE_PCT / 100,
-            "take_profit_rr": settings.TAKE_PROFIT_RR,
-            "start_equity": raphael.treasury.equity,
-        })
+    meta = {
+        "run_id": raphael.events.path.parent.name if raphael.events.path else "",
+        "source": source,
+        "cycles": cycles,
+        "cycles_per_day": raphael.clock.cycles_per_day,
+        "watchlist": watchlist,
+        "account_size": settings.ACCOUNT_SIZE,
+        "max_open_positions": settings.MAX_OPEN_POSITIONS,
+        "max_daily_loss": settings.ACCOUNT_SIZE * settings.MAX_DAILY_LOSS_PCT / 100,
+        "max_risk_per_trade": settings.ACCOUNT_SIZE * settings.MAX_RISK_PER_TRADE_PCT / 100,
+        "take_profit_rr": settings.TAKE_PROFIT_RR,
+        "start_equity": raphael.treasury.equity,
+    }
+    _write_run_file(raphael, "meta.json", meta)
     raphael.events.emit("treasury", equity=raphael.treasury.equity,
                         allocations=raphael.treasury.allocations, division=raphael.DIVISION)
 
@@ -171,6 +172,10 @@ def run_city(feed, cycles=CYCLES, watchlist=None, raphael=None, window=WINDOW, t
     for w in raphael.audit["warnings"]:
         print(f"ULTRON warning (tick {w['tick']}): {w['message']}")
     _write_run_file(raphael, "audit.json", raphael.audit)
+    if raphael.events.path:
+        report = write_report(raphael.events.path.parent, raphael.events.events, meta, raphael.audit)
+        print(f"Raphael's report: {report_headline(report)}")
+        print(f"  open it: {raphael.events.path.parent / 'report.html'}")
     return raphael
 
 

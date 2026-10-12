@@ -24,7 +24,7 @@ from core.alpaca import AlpacaError, AlpacaFeed, fetch_daily_bars, fetch_news, m
 from core.llm import LLMUnavailable, make_client
 from core.treasury import Treasury
 from divisions.research.bureau import ResearchBureau
-from run_city import START_PRICES, WINDOW, build_city, new_run_dir, run_city
+from run_city import WINDOW, build_city, new_run_dir, run_city
 
 CLOSE_BUFFER_S = 60  # stop this long before the closing bell
 TREASURY_PATH = Path("data/treasury.json")  # equity carried from one market day to the next
@@ -66,7 +66,8 @@ def main(argv=None):
     p.add_argument("--interval", type=int, default=300, help="seconds between cycles (default 300 = 5 min)")
     p.add_argument("--max-wait-hours", type=float, default=3.0,
                    help="exit if the market does not open within this many hours")
-    p.add_argument("--symbols", default=",".join(START_PRICES), help="comma-separated watchlist")
+    p.add_argument("--symbols", default=",".join(settings.WATCHLIST),
+                   help="comma-separated watchlist (default: WATCHLIST in config/settings.py)")
     p.add_argument("--check", action="store_true", help="test the keys and print the market clock, then exit")
     args = p.parse_args(argv)
     symbols = [s.strip().upper() for s in args.symbols.split(",") if s.strip()]

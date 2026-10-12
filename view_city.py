@@ -16,7 +16,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent
 VIEWER_DIR = ROOT / "viewer"
 RUNS_DIR = ROOT / "data" / "runs"
-RUN_FILES = {"meta.json", "events.jsonl", "audit.json", "ledger.json"}
+RUN_FILES = {"meta.json", "events.jsonl", "audit.json", "ledger.json", "report.html"}
 
 
 def latest_run(runs_dir=RUNS_DIR):
