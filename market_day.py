@@ -20,6 +20,7 @@ from datetime import datetime
 from config import settings
 from pathlib import Path
 
+from core import trial
 from core.alpaca import AlpacaError, AlpacaFeed, fetch_daily_bars, fetch_news, market_clock
 from core.llm import LLMUnavailable, make_client
 from core.treasury import Treasury
@@ -130,6 +131,11 @@ def main(argv=None):
     day = treasury.settle(run_dir.name)
     print(f"Treasury: day P&L ${day['pnl']:+,.2f}, equity now ${day['end_equity']:,.2f}")
     print(f"Session saved to {run_dir}")
+    result = trial.update()
+    if result:
+        s, v = result
+        print(f"Trial: day {v['days_done']} of {v['days_total']}, {v['status']}, "
+              f"P&L {'+' if s['pnl'] >= 0 else '-'}${abs(s['pnl']):,.2f} (scorecard: data/trial/scorecard.html)")
     return 0 if raphael.audit["ok"] else 2
 
 

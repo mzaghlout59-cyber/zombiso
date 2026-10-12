@@ -35,6 +35,14 @@ REQUIRE_STOP_LOSS = True
 # Size trades as if the stop could slip to this multiple of its distance.
 STOP_GAP_BUFFER = 2.0
 
+# --- The paper trial (python trial.py) ---
+# Fixed before the trial starts, so the result can't be argued with afterwards.
+TRIAL_DAYS = 7                    # real market days on pretend money
+TRIAL_MAX_DRAWDOWN_PCT = 3.0      # never fall more than this % below the best point
+TRIAL_MIN_TRADES = 20             # fewer trades than this is too little to judge
+TRIAL_MIN_AGENT_VOTES = 10        # an agent needs this many scored votes before it's judged
+TRIAL_MIN_AGENT_ACCURACY = 50     # % right; below this an agent is marked for replacement
+
 # Simulated time: the daily loss limit resets every this many cycles
 CYCLES_PER_DAY = 20
 
