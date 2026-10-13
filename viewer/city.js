@@ -971,27 +971,24 @@
     get state() { return state; }, get fx() { return fx; }, get meta() { return meta; },
     get audit() { return audit; }, get done() { return !!audit && P >= groups.length; },
   };
-  // The city is shown in 3D. The flat 2D map is only a fallback for when the 3D engine
-  // (three.js, loaded from the CDN) can't be fetched, e.g. with no internet.
   let module3d = null, renderer3d = null, renderer3dRun = null;
-  async function start3d() {
-    mode3d = true;
-    $("city").hidden = true;
-    $("city3d").hidden = false;
-    const note = $("stage-note");
-    note.textContent = "Loading 3D city…";
-    note.hidden = false;
-    try {
-      module3d = await import("./city3d.js");
-      note.hidden = true;
-    } catch (err) {
-      console.warn("3D city unavailable", err);
-      mode3d = false;
-      $("city").hidden = false;
-      $("city3d").hidden = true;
-      note.textContent = "3D city couldn't load (no internet?). Showing the flat map instead.";
-      setTimeout(() => (note.hidden = true), 8000);
+  async function setView(mode) {
+    const btn = $("b-view");
+    if (mode === "3d" && !module3d) {
+      btn.textContent = "Loading 3D...";
+      try {
+        module3d = await import("./city3d.js");  // pulls three.js from the CDN on first use
+      } catch (err) {
+        console.warn("3D view unavailable", err);
+        btn.textContent = "3D unavailable (offline?)";
+        return;
+      }
     }
+    mode3d = mode === "3d";
+    $("city").hidden = mode3d;
+    $("city3d").hidden = !mode3d;
+    btn.textContent = mode3d ? "2D view" : "3D view";
+    try { localStorage.setItem("zcity-view", mode); } catch { /* storage blocked: fine */ }
   }
 
   // The 3D scene is built once the run's data is in, and rebuilt when a new run starts
@@ -1005,7 +1002,8 @@
     }
     return renderer3d;
   }
-  start3d();
+  $("b-view").addEventListener("click", () => setView(mode3d ? "2d" : "3d"));
+  try { if (localStorage.getItem("zcity-view") === "3d") setView("3d"); } catch { /* ignore */ }
 
   // ---------- controls ----------
   $("b-play").addEventListener("click", () => {

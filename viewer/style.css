@@ -77,13 +77,6 @@ main { display: grid; grid-template-columns: minmax(0, 1fr) 330px; min-height: 0
 #city3d { position: absolute; inset: 0; }
 #city3d canvas { position: absolute; inset: 0; display: block; }
 #city3d canvas.overlay { pointer-events: none; }
-.stage-note {
-  position: absolute; top: 14px; left: 50%; transform: translateX(-50%); z-index: 2;
-  font: 700 11px var(--title); letter-spacing: .18em; text-transform: uppercase; color: var(--cyan);
-  padding: 8px 16px; background: rgba(0, 229, 255, .08); border: 1px solid rgba(0, 229, 255, .45);
-  text-shadow: 0 0 8px rgba(0, 229, 255, .7); animation: blink 1.6s infinite;
-}
-.stage-note[hidden] { display: none; }
 #empty { position: absolute; color: var(--muted); font-size: 16px; z-index: 1; }
 #empty code { color: var(--cyan); }
 
