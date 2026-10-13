@@ -20,6 +20,7 @@ from core.events import EventLog
 from core.ledger import PaperLedger
 from core.raphael import Raphael
 from core.prices import SimulatedFeed
+from core.logger import safe_console
 from core.report import headline as report_headline, write_report
 from core.ultron import Ultron
 from divisions.investment.agents import (
@@ -180,6 +181,7 @@ def run_city(feed, cycles=CYCLES, watchlist=None, raphael=None, window=WINDOW, t
 
 
 if __name__ == "__main__":
+    safe_console()
     parser = argparse.ArgumentParser(description="Run the Zombiso AI City paper-trading simulation.")
     parser.add_argument("--seed", type=int, default=42, help="market seed (same seed = same run)")
     parser.add_argument("--cycles", type=int, default=CYCLES, help="number of cycles to run")

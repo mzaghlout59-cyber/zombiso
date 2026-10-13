@@ -24,6 +24,7 @@ from pathlib import Path
 from core import trial
 from core.alpaca import AlpacaError, AlpacaFeed, fetch_daily_bars, fetch_news, market_clock
 from core.llm import LLMUnavailable, check_ready
+from core.logger import safe_console
 from core.treasury import Treasury
 from divisions.research.bureau import ResearchBureau
 from run_city import WINDOW, build_city, new_run_dir, run_city
@@ -119,6 +120,7 @@ def main(argv=None):
     p.add_argument("--check", action="store_true", help="test the keys and print the market clock, then exit")
     args = p.parse_args(argv)
     symbols = [s.strip().upper() for s in args.symbols.split(",") if s.strip()]
+    safe_console()
 
     stamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     print(f"=== {settings.PROJECT_NAME} market day | {stamp} | mode: {settings.TRADING_MODE} ===")

@@ -10,6 +10,7 @@ import sys
 import webbrowser
 
 from core import trial
+from core.logger import safe_console
 
 
 def main(argv=None):
@@ -43,4 +44,5 @@ def main(argv=None):
 
 
 if __name__ == "__main__":
+    safe_console()
     sys.exit(main())
