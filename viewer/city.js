@@ -12,12 +12,17 @@
   const ctx = canvas.getContext("2d");
   const $ = (id) => document.getElementById(id);
 
+  // Cyber palette: near-black blues lit by neon.
   const C = {
-    road: "#16203a", roadLine: "#24345a", panel: "#101a30", panelHi: "#18264a",
-    stroke: "#2b3b63", text: "#dfe6f5", muted: "#7f8cab", gold: "#f2b84b",
-    green: "#4cd497", red: "#ff6b6b", amber: "#ffb347", violet: "#a78bfa", gray: "#6b7794",
-    white: "#e8eefc",
+    road: "#071026", panel: "rgba(6,12,30,0.88)", panelHi: "rgba(10,20,48,0.92)",
+    stroke: "#1d3666", text: "#dff8ff", muted: "#6f88bd", gold: "#ffcf4a",
+    green: "#2bffa3", red: "#ff3d6e", amber: "#ffb020", violet: "#b56bff", gray: "#5b6d96",
+    white: "#ecfbff", cyan: "#00e5ff", magenta: "#ff2bd6",
   };
+  // Each kind of building has its own neon.
+  const NEON = { squad: C.cyan, commander: C.magenta, hq: C.gold, gate: C.cyan, tower: C.violet, bank: C.gold };
+  const TITLE_FONT = '"Orbitron", "Segoe UI", system-ui, sans-serif';
+  const MONO_FONT = '"Share Tech Mono", "Consolas", monospace';
 
   // ---------- the city map (logical 1200x720) ----------
   const PLACES = {
@@ -66,6 +71,7 @@
   let state = null, applied = 0, P = 0, playing = true, speed = 1, dragging = false;
   let fx = freshFx();
   let stars = makeStars();
+  const skyline = makeSkyline();  // distant towers behind the city, generated once
   let mode3d = false;  // 3D view on? (renderer lives in viewer/city3d.js)
 
   function freshFx() { return { particles: [], glows: {}, floats: [], banner: null, eyeTarget: null, pulse: 0 }; }
@@ -75,6 +81,19 @@
     const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
     for (let i = 0; i < 90; i++) s.push({ x: rnd() * W, y: rnd() * 380, r: rnd() * 1.4 + 0.3, tw: rnd() * 6 });
     return s;
+  }
+
+  function makeSkyline() {
+    const towers = []; let seed = 42;
+    const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+    for (let x = -10; x < W + 10;) {
+      const w = 18 + rnd() * 46, h = 50 + rnd() * rnd() * 230;
+      towers.push({ x, w, h, neon: rnd() < 0.5 ? C.cyan : rnd() < 0.5 ? C.magenta : C.violet,
+                    lit: Array.from({ length: Math.floor(h / 9) * Math.floor(w / 8) }, () => rnd() < 0.22),
+                    blink: rnd() * 6 });
+      x += w + 2 + rnd() * 8;
+    }
+    return towers;
   }
 
   function exchanges() {
@@ -110,8 +129,9 @@
              reports: {}, votes: {}, live: Object.fromEntries(SCORED.map((n) => [n, { right: 0, wrong: 0 }])) };
   }
 
-  const money = (v) => (v < 0 ? "-$" : "$") + Math.abs(v).toFixed(2);
-  const signed = (v) => (v >= 0 ? "+" : "-") + "$" + Math.abs(v).toFixed(2);
+  const amount = (v) => Math.abs(v).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const money = (v) => (v < 0 ? "-$" : "$") + amount(v);
+  const signed = (v) => (v >= 0 ? "+" : "-") + "$" + amount(v);
 
   function pushFeed(s, tick, text, cls) {
     s.feed.unshift({ tick, text, cls });
@@ -234,6 +254,7 @@
     } else if (e.kind === "trade_opened") {
       const path = aegisToExchange(e.symbol);
       if (path) travel(center("Aegis"), path, C.gold, now, { slow: 1.8, size: 7 });
+      glow(`ex:${e.symbol}`, C.gold, now, 1200);
       const ex = exchangeOf(e.symbol);
       if (ex) float(ex.x + ex.w / 2, ex.y + 30, `OPEN ${e.size} @ ${e.entry.toFixed(2)}`, C.gold, now);
     } else if (e.kind === "trade_closed") {
@@ -245,6 +266,7 @@
         travel({ x: ex.x + ex.w / 2, y: ex.y }, vaultPath(ex), color, now, { slow: 1.6, size: 6 });
       }
       glow("Vault", color, now, 1200);
+      glow(`ex:${e.symbol}`, color, now, 1200);
     } else if (e.kind === "tick") {
       if (e.day !== (state.prevBannerDay ?? -1)) {
         fx.banner = { text: `Day ${e.day + 1}`, t0: now };
@@ -495,32 +517,83 @@
     drawBanner(now);
   }
 
+  const HORIZON = 395;  // where the city's floor meets the sky
+
   function drawSky(now, ph, light) {
-    ctx.fillStyle = mix([6, 9, 20], [26, 44, 82], light);
-    ctx.fillRect(0, 0, W, H);
-    ctx.globalAlpha = Math.max(0, 1 - light * 1.6);
+    // Always night in a cyber city; daytime only warms the sky toward a violet dusk.
+    const sky = ctx.createLinearGradient(0, 0, 0, HORIZON);
+    sky.addColorStop(0, mix([2, 4, 14], [10, 6, 30], light));
+    sky.addColorStop(1, mix([16, 10, 44], [52, 18, 78], light));
+    ctx.fillStyle = sky;
+    ctx.fillRect(0, 0, W, HORIZON);
     for (const s of stars) {
+      ctx.globalAlpha = (0.35 + 0.35 * Math.sin(now / 900 + s.tw)) * (1 - light * 0.6);
       ctx.fillStyle = C.white;
-      ctx.globalAlpha = Math.max(0, 1 - light * 1.6) * (0.5 + 0.5 * Math.sin(now / 900 + s.tw));
-      ctx.beginPath(); ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2); ctx.fill();
+      ctx.fillRect(s.x, s.y * 0.7, s.r, s.r);
     }
     ctx.globalAlpha = 1;
-    // sun by day, moon by night, crossing the sky once per city day
-    // rises from behind the ground line at dawn, sets behind it at dusk
-    const x = 40 + ph * (W - 80), y = 420 - light * 380;
-    ctx.fillStyle = "rgba(255,210,120,0.16)";
-    ctx.beginPath(); ctx.arc(x, y, 26, 0, Math.PI * 2); ctx.fill();
-    // ground
-    ctx.fillStyle = mix([8, 12, 24], [16, 26, 48], light);
-    ctx.fillRect(0, 395, W, H - 395);
+
+    // distant skyline: dark towers, scattered lit windows, a neon tip on each
+    for (const t of skyline) {
+      const top = HORIZON - t.h;
+      ctx.fillStyle = "#060b1d";
+      ctx.fillRect(t.x, top, t.w, t.h);
+      const cols = Math.floor(t.w / 8);
+      t.lit.forEach((on, i) => {
+        if (!on) return;
+        const c = i % cols, r = Math.floor(i / cols);
+        ctx.fillStyle = (i + Math.floor(now / 1700 + t.blink)) % 9 === 0 ? "rgba(255,43,214,.55)" : "rgba(0,229,255,.32)";
+        ctx.fillRect(t.x + 3 + c * 8, top + 6 + r * 9, 3, 2);
+      });
+      ctx.fillStyle = t.neon;
+      ctx.globalAlpha = 0.55 + 0.45 * Math.sin(now / 700 + t.blink);
+      ctx.fillRect(t.x, top, t.w, 1.5);
+      ctx.globalAlpha = 1;
+    }
+
+    // horizon glow
+    const glow = ctx.createLinearGradient(0, HORIZON - 60, 0, HORIZON + 30);
+    glow.addColorStop(0, "rgba(255,43,214,0)");
+    glow.addColorStop(0.7, "rgba(255,43,214,.22)");
+    glow.addColorStop(1, "rgba(0,229,255,.05)");
+    ctx.fillStyle = glow;
+    ctx.fillRect(0, HORIZON - 60, W, 90);
+
+    // floor: a neon perspective grid scrolling toward the viewer
+    ctx.fillStyle = "#03060f";
+    ctx.fillRect(0, HORIZON, W, H - HORIZON);
+    ctx.save();
+    ctx.beginPath(); ctx.rect(0, HORIZON, W, H - HORIZON); ctx.clip();
+    ctx.strokeStyle = "rgba(0,229,255,.22)"; ctx.lineWidth = 1;
+    const vx = W / 2;
+    for (let i = -24; i <= 24; i++) {  // rays from the vanishing point
+      ctx.beginPath(); ctx.moveTo(vx + i * 6, HORIZON); ctx.lineTo(vx + i * 110, H); ctx.stroke();
+    }
+    const scroll = (now / 4000) % 1;
+    for (let k = 0; k < 14; k++) {  // horizontal lines, bunching up toward the horizon
+      const d = (k + scroll) / 14;
+      const y = HORIZON + (H - HORIZON) * d * d;
+      ctx.globalAlpha = 0.15 + 0.6 * d;
+      ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke();
+    }
+    ctx.restore();
+    ctx.globalAlpha = 1;
   }
 
-  function road(pts, width = 8) {
+  // A road is a dark conduit with a thin neon core and energy pulses flowing along it.
+  function road(pts, width, now) {
     ctx.lineCap = "round"; ctx.lineJoin = "round";
+    ctx.beginPath(); pts.forEach((p, i) => (i ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y)));
     ctx.strokeStyle = C.road; ctx.lineWidth = width;
-    ctx.beginPath(); pts.forEach((p, i) => (i ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y))); ctx.stroke();
-    ctx.strokeStyle = C.roadLine; ctx.lineWidth = 1; ctx.setLineDash([6, 8]);
-    ctx.stroke(); ctx.setLineDash([]);
+    ctx.stroke();
+    ctx.save();
+    ctx.shadowColor = C.cyan; ctx.shadowBlur = 6;
+    ctx.strokeStyle = "rgba(0,229,255,.28)"; ctx.lineWidth = 1;
+    ctx.stroke();
+    ctx.strokeStyle = "rgba(0,229,255,.85)"; ctx.lineWidth = 1.6;
+    ctx.setLineDash([2, 22]); ctx.lineDashOffset = -now / 35;
+    ctx.stroke();
+    ctx.restore();
   }
 
   // Every road as [points, width]; shared by the 2D and 3D views.
@@ -536,130 +609,196 @@
   }
 
   function drawRoads(now) {
-    for (const [pts, width] of roadPaths()) road(pts, width);
-    // Ultron's line of sight to headquarters
+    for (const [pts, width] of roadPaths()) road(pts, width, now);
+    // Ultron's scanning beam to headquarters, passing above Aegis's roof
     const flick = Math.max(0, 1 - (now - fx.pulse) / 400);
-    ctx.strokeStyle = `rgba(167,139,250,${0.25 + 0.5 * flick})`;
-    ctx.lineWidth = 1.5; ctx.setLineDash([3, 6]);
-    // passes above Aegis's roof on its way to headquarters
-    ctx.beginPath(); ctx.moveTo(1090, 140); ctx.lineTo(730, 210); ctx.stroke(); ctx.setLineDash([]);
+    ctx.save();
+    ctx.shadowColor = C.violet; ctx.shadowBlur = 10;
+    ctx.strokeStyle = `rgba(181,107,255,${0.3 + 0.5 * flick})`;
+    ctx.lineWidth = 1.5; ctx.setLineDash([3, 6]); ctx.lineDashOffset = now / 60;
+    ctx.beginPath(); ctx.moveTo(1090, 140); ctx.lineTo(730, 210); ctx.stroke();
+    ctx.restore();
   }
 
-  function box(x, y, w, h, r, fill, stroke, lw = 1.5) {
-    ctx.beginPath(); ctx.roundRect(x, y, w, h, r);
+  // Stroke the current path in neon: a soft glow plus a crisp core line.
+  function neonStroke(color, amt = 0.6, width = 1.4) {
+    ctx.save();
+    ctx.shadowColor = color; ctx.shadowBlur = 6 + 16 * amt;
+    ctx.strokeStyle = color; ctx.lineWidth = width; ctx.globalAlpha = Math.min(1, 0.45 + amt * 0.6);
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  // A holographic panel: dark glass, neon edge, HUD brackets on the corners.
+  function panel(x, y, w, h, color, amt, fill = C.panel) {
+    ctx.beginPath(); ctx.rect(x, y, w, h);
     ctx.fillStyle = fill; ctx.fill();
-    ctx.strokeStyle = stroke; ctx.lineWidth = lw; ctx.stroke();
+    neonStroke(color, amt * 0.7, 1);
+    const L = Math.min(10, w / 5, h / 4);
+    ctx.beginPath();
+    for (const [cx, cy, dx, dy] of [[x, y, 1, 1], [x + w, y, -1, 1], [x, y + h, 1, -1], [x + w, y + h, -1, -1]]) {
+      ctx.moveTo(cx + dx * L, cy); ctx.lineTo(cx, cy); ctx.lineTo(cx, cy + dy * L);
+    }
+    neonStroke(color, amt, 2);
+    // faint top highlight, like light catching glass
+    ctx.fillStyle = "rgba(255,255,255,.04)";
+    ctx.fillRect(x + 1, y + 1, w - 2, Math.min(10, h / 4));
   }
 
-  function text(t, x, y, size, color, weight = 400, align = "center") {
-    ctx.font = `${weight} ${size}px "Segoe UI", system-ui, sans-serif`;
+  // maxWidth squeezes text that would not fit (e.g. long names on small buildings).
+  function text(t, x, y, size, color, weight = 400, align = "center", family = MONO_FONT, glow = 0, maxWidth) {
+    ctx.font = `${weight} ${size}px ${family}`;
     ctx.fillStyle = color; ctx.textAlign = align; ctx.textBaseline = "middle";
-    ctx.fillText(t, x, y);
+    if (glow) { ctx.save(); ctx.shadowColor = color; ctx.shadowBlur = glow; }
+    if (maxWidth) ctx.fillText(t, x, y, maxWidth); else ctx.fillText(t, x, y);
+    if (glow) ctx.restore();
   }
 
-  function drawWindows(p, light) {
-    const alpha = Math.max(0, 0.75 - light);
-    if (alpha <= 0.02) return;
-    // windows sit below the title and subtitle
-    const top = p.y - p.h / 2 + 64;
-    const cols = Math.floor((p.w - 20) / 14), rows = Math.floor((p.h - 70) / 10);
+  function title(t, x, y, size, color, glow = 8, maxWidth) {
+    ctx.letterSpacing = "1.5px";
+    text(t.toUpperCase(), x, y, size, color, 700, "center", TITLE_FONT, glow, maxWidth);
+    ctx.letterSpacing = "0px";
+  }
+
+  // Headquarters' windows: a grid of flickering neon lights.
+  function drawWindows(p, now) {
+    const top = p.y - p.h / 2 + 62;
+    const cols = Math.floor((p.w - 20) / 14), rows = Math.floor((p.h - 68) / 9);
     for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) {
-      if ((r * 7 + c * 3 + p.x) % 5 === 0) continue;
-      ctx.fillStyle = `rgba(255,214,140,${alpha * 0.55})`;
-      ctx.fillRect(p.x - p.w / 2 + 12 + c * 14, top + r * 10, 7, 5);
+      const seed = r * 7 + c * 3;
+      if (seed % 5 === 0) continue;
+      const on = (seed + Math.floor(now / 900)) % 11 !== 0;
+      ctx.fillStyle = on ? (seed % 4 ? "rgba(255,207,74,.7)" : "rgba(0,229,255,.7)") : "rgba(255,255,255,.06)";
+      ctx.fillRect(p.x - p.w / 2 + 12 + c * 14, top + r * 9, 8, 3);
     }
   }
 
-  function drawPlace(name, now, light) {
+  function drawPlace(name, now) {
     const p = PLACES[name];
     const g = fx.glows[name];
     const active = g && now < g.until;
-    const k = active ? (g.until - now) / 700 : 0;
+    const k = active ? Math.min(1, (g.until - now) / 700) : 0;
+    const neon = active ? g.color : NEON[p.kind];
+    const amt = active ? 0.7 + k : 0.45 + 0.12 * Math.sin(now / 900 + p.x);  // idle buildings breathe
     const x = p.x - p.w / 2, y = p.y - p.h / 2;
-    ctx.save();
-    if (active) { ctx.shadowColor = g.color; ctx.shadowBlur = 28 * k; }
-    const dim = p.idle || p.stub;
-    if (p.kind === "gate") {
+
+    if (p.kind === "gate") {  // Aegis: an energy shield
       ctx.beginPath();
       ctx.moveTo(x, y); ctx.lineTo(x + p.w, y); ctx.lineTo(x + p.w, y + p.h * 0.55);
       ctx.quadraticCurveTo(x + p.w, y + p.h * 0.85, p.x, y + p.h);
       ctx.quadraticCurveTo(x, y + p.h * 0.85, x, y + p.h * 0.55); ctx.closePath();
       ctx.fillStyle = C.panelHi; ctx.fill();
-      ctx.strokeStyle = active ? g.color : C.stroke; ctx.lineWidth = active ? 3 : 1.5; ctx.stroke();
-    } else if (p.kind === "tower") {
-      box(x + 12, y + 40, p.w - 24, p.h - 40, 4, C.panel, active ? g.color : C.stroke);
-      box(x, y, p.w, 50, 10, C.panelHi, C.violet, 1.5);
-    } else if (p.kind === "bank") {
-      // a classical bank front: pediment roof over columns
+      neonStroke(neon, amt, 2);
+      ctx.save(); ctx.clip();  // a hex-like scan sweeping down the shield
+      const sy = y + ((now / 18) % (p.h + 20)) - 10;
+      ctx.fillStyle = "rgba(0,229,255,.10)"; ctx.fillRect(x, sy, p.w, 6);
+      ctx.restore();
+    } else if (p.kind === "tower") {  // Ultron: a spire with an eye on top
+      ctx.beginPath();
+      ctx.moveTo(p.x - 10, y + p.h); ctx.lineTo(p.x - 6, y + 46); ctx.lineTo(p.x + 6, y + 46); ctx.lineTo(p.x + 10, y + p.h);
+      ctx.closePath(); ctx.fillStyle = C.panel; ctx.fill(); neonStroke(neon, amt, 1.4);
+      for (let i = 0; i < 6; i++) {  // energy rising up the spire
+        const ry = y + p.h - ((now / 12 + i * 22) % (p.h - 46));
+        ctx.fillStyle = "rgba(181,107,255,.6)"; ctx.fillRect(p.x - 4, ry, 8, 1.5);
+      }
+      ctx.beginPath(); ctx.ellipse(p.x, y + 25, p.w / 2, 22, 0, 0, Math.PI * 2);
+      ctx.fillStyle = C.panelHi; ctx.fill(); neonStroke(C.violet, amt, 1.6);
+    } else if (p.kind === "bank") {  // Treasury: a neon temple
       ctx.beginPath();
       ctx.moveTo(x - 6, y + 14); ctx.lineTo(p.x, y - 10); ctx.lineTo(x + p.w + 6, y + 14); ctx.closePath();
-      ctx.fillStyle = C.panelHi; ctx.fill();
-      ctx.strokeStyle = active ? g.color : C.gold; ctx.lineWidth = active ? 3 : 1.5; ctx.stroke();
-      box(x, y + 14, p.w, p.h - 14, 4, C.panel, active ? g.color : C.gold, active ? 3 : 1.5);
+      ctx.fillStyle = C.panelHi; ctx.fill(); neonStroke(neon, amt, 1.6);
+      panel(x, y + 14, p.w, p.h - 14, neon, amt);
+      ctx.beginPath();
+      for (let i = 1; i < 5; i++) { const cx = x + (p.w / 5) * i; ctx.moveTo(cx, y + 18); ctx.lineTo(cx, y + p.h - 4); }
+      ctx.strokeStyle = "rgba(255,207,74,.18)"; ctx.lineWidth = 3; ctx.stroke();
     } else {
-      box(x, y, p.w, p.h, p.kind === "squad" ? 8 : 10, p.kind === "hq" ? C.panelHi : C.panel,
-          active ? g.color : (p.kind === "hq" ? C.gold : C.stroke), active ? 3 : (p.kind === "hq" ? 2 : 1.5));
+      panel(x, y, p.w, p.h, neon, amt, p.kind === "hq" ? C.panelHi : C.panel);
     }
-    ctx.restore();
-    if (p.kind === "hq") drawWindows(p, light);
 
-    const titleColor = dim ? C.muted : C.text;
+    if (p.kind === "hq") {
+      drawWindows(p, now);
+      // a holographic ring spinning above headquarters, and an antenna beacon
+      ctx.save();
+      ctx.beginPath(); ctx.ellipse(p.x, y - 14, p.w * 0.42, 9, 0, 0, Math.PI * 2);
+      ctx.setLineDash([10, 6]); ctx.lineDashOffset = -now / 25;
+      neonStroke(C.gold, 0.8, 1.6);
+      ctx.restore();
+      ctx.fillStyle = C.gold; ctx.globalAlpha = 0.5 + 0.5 * Math.sin(now / 300);
+      ctx.beginPath(); ctx.arc(p.x, y - 30, 3, 0, Math.PI * 2); ctx.fill(); ctx.globalAlpha = 1;
+    }
+
     if (p.kind === "tower") {
       drawUltronEye(p, now);
-      text(p.title, p.x, y + p.h + 14, 13, C.violet, 600);
-      text(p.sub, p.x, y + p.h + 30, 11, C.muted);
+      title(p.title, p.x, y + p.h + 14, 12, C.violet);
+      text(p.sub.toUpperCase(), p.x, y + p.h + 30, 10, C.muted);
       return;
     }
     const ty = p.kind === "gate" ? p.y - 14 : p.kind === "bank" ? p.y : p.y - (p.h > 60 ? 12 : 8);
     const life = SCORED.includes(name) ? survival(name) : null;
-    if (life) {  // health bar under the building: how often this agent has been right
-      const bw = p.w - 12, bx = p.x - bw / 2, by = y + p.h + 5;
-      ctx.fillStyle = "#1a2643"; ctx.fillRect(bx, by, bw, 5);
-      ctx.fillStyle = STATUS[life.status][1]; ctx.fillRect(bx, by, bw * (life.acc ?? 0) / 100, 5);
+    if (life) {  // segmented health bar under the building: how often this agent has been right
+      const segs = 10, bw = p.w - 12, bx = p.x - bw / 2, by = y + p.h + 6, sw = bw / segs;
+      const filled = Math.round(((life.acc ?? 0) / 100) * segs);
+      const color = STATUS[life.status][1];
+      for (let i = 0; i < segs; i++) {
+        ctx.fillStyle = i < filled ? color : "rgba(255,255,255,.07)";
+        if (i < filled) { ctx.save(); ctx.shadowColor = color; ctx.shadowBlur = 6; }
+        ctx.fillRect(bx + i * sw + 1, by, sw - 2, 4);
+        if (i < filled) ctx.restore();
+      }
     }
     const dying = life && life.status === "dying";
-    text((dying ? "☠ " : "") + p.title, p.x, ty, p.kind === "squad" ? 13 : 16, dying ? C.red : titleColor, 600);
+    title((dying ? "☠ " : "") + p.title, p.x, ty, p.kind === "squad" ? 11 : 14, dying ? C.red : C.text,
+          active ? 14 : 6, p.w - 12);
     let sub = p.sub;
     if (p.kind === "bank" && state) sub = money(state.startEquity + state.realized);
-    if (p.stub) sub += " (stub)";
-    text(sub, p.x, ty + 18, 11, C.muted);
+    text(sub.toUpperCase(), p.x, ty + 17, 10, p.kind === "bank" ? C.gold : C.muted, 400, "center", MONO_FONT, 0, p.w - 10);
   }
 
   function drawUltronEye(p, now) {
     const cx = p.x, cy = p.y - p.h / 2 + 25;
     const done = audit && P >= groups.length;
     const iris = done ? (audit.ok ? C.green : C.red) : C.violet;
-    ctx.fillStyle = "#0a0f1d";
-    ctx.beginPath(); ctx.ellipse(cx, cy, 24, 14, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = "#04050c";
+    ctx.beginPath(); ctx.ellipse(cx, cy, 24, 13, 0, 0, Math.PI * 2); ctx.fill();
     const t = fx.eyeTarget || { x: cx, y: cy + 100 };
     const a = Math.atan2(t.y - cy, t.x - cx);
     const px = cx + Math.cos(a) * 9, py = cy + Math.sin(a) * 5;
-    ctx.save(); ctx.shadowColor = iris; ctx.shadowBlur = 14;
+    ctx.save(); ctx.shadowColor = iris; ctx.shadowBlur = 20;
     ctx.fillStyle = iris; ctx.beginPath(); ctx.arc(px, py, 7, 0, Math.PI * 2); ctx.fill();
     ctx.restore();
-    ctx.fillStyle = "#05070e"; ctx.beginPath(); ctx.arc(px, py, 3, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = "#04050c"; ctx.beginPath(); ctx.arc(px, py, 2.5, 0, Math.PI * 2); ctx.fill();
+    // a slow radar ring pulsing out from the eye
+    const r = 14 + ((now / 30) % 40);
+    ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2);
+    ctx.strokeStyle = iris; ctx.globalAlpha = Math.max(0, 1 - (r - 14) / 40) * 0.5; ctx.lineWidth = 1; ctx.stroke();
+    ctx.globalAlpha = 1;
   }
 
   function drawExchange(ex) {
     const { sym, x, y, w, h } = ex;
-    box(x, y, w, h, 12, C.panel, C.stroke);
+    const now = performance.now();
+    const pos = Object.values(state.open).find((t) => t.symbol === sym);
+    const g = fx.glows[`ex:${sym}`];
+    panel(x, y, w, h, pos ? C.gold : C.cyan, pos ? 0.75 : 0.4);
     const prices = (state.prices[sym] || []).slice(-SPARK_POINTS);
     const lastP = prices[prices.length - 1];
     const firstP = (state.prices[sym] || [])[0];
-    text(sym, x + 16, y + 22, 16, C.text, 700, "left");
+    ctx.letterSpacing = "2px";
+    text(sym, x + 16, y + 22, 17, C.cyan, 900, "left", TITLE_FONT, 10);
+    ctx.letterSpacing = "0px";
     if (lastP != null) {
       const ch = firstP ? (lastP / firstP - 1) * 100 : 0;
-      text(lastP.toFixed(2), x + w - 16, y + 18, 15, C.text, 600, "right");
-      text(`${ch >= 0 ? "+" : ""}${ch.toFixed(2)}% this run`, x + w - 16, y + 36, 11, ch >= 0 ? C.green : C.red, 400, "right");
+      text(lastP.toFixed(2), x + w - 16, y + 18, 17, C.white, 400, "right", MONO_FONT, 6);
+      text(`${ch >= 0 ? "▲ +" : "▼ "}${ch.toFixed(2)}%`, x + w - 16, y + 37, 11, ch >= 0 ? C.green : C.red, 400, "right");
     }
-    const pos = Object.values(state.open).find((t) => t.symbol === sym);
     const dec = state.decisions[sym];
-    const status = pos ? `holding ${pos.size} @ ${pos.entry.toFixed(2)}` :
-      dec ? (dec.action === "buy" ? (dec.executed ? "bought" : "buy blocked") : "waiting for a setup") : "waiting";
-    text(status, x + 16, y + 42, 11, pos ? C.gold : C.muted, 400, "left");
+    const status = pos ? `HOLDING ${pos.size} @ ${pos.entry.toFixed(2)}` :
+      dec ? (dec.action === "buy" ? (dec.executed ? "BOUGHT" : "BUY BLOCKED") : "SCANNING FOR A SETUP") : "STANDBY";
+    text(status, x + 16, y + 42, 10, pos ? C.gold : C.muted, 400, "left");
+    if (g && now < g.until) { panel(x, y, w, h, g.color, 1.4, "rgba(0,0,0,0)"); }
 
     const gx = x + 14, gy = y + 60, gw = w - 28 - (pos ? 54 : 0), gh = h - 76;
-    if (prices.length < 2) { text("waiting for prices", x + w / 2, gy + gh / 2, 12, C.muted); return; }
+    if (prices.length < 2) { text("AWAITING PRICE FEED", x + w / 2, gy + gh / 2, 11, C.muted); return; }
     let lo = Math.min(...prices), hi = Math.max(...prices);
     let target = null;
     if (pos) {
@@ -670,8 +809,9 @@
     const Y = (v) => gy + gh - ((v - lo) / (hi - lo)) * gh;
     const X = (i) => gx + (i / (SPARK_POINTS - 1)) * gw;
 
-    ctx.strokeStyle = "#1a2643"; ctx.lineWidth = 1;
-    for (let i = 0; i <= 3; i++) { const yy = gy + (gh * i) / 3; ctx.beginPath(); ctx.moveTo(gx, yy); ctx.lineTo(gx + gw, yy); ctx.stroke(); }
+    ctx.strokeStyle = "rgba(0,229,255,.08)"; ctx.lineWidth = 1;
+    for (let i = 0; i <= 4; i++) { const yy = gy + (gh * i) / 4; ctx.beginPath(); ctx.moveTo(gx, yy); ctx.lineTo(gx + gw, yy); ctx.stroke(); }
+    for (let i = 0; i <= 6; i++) { const xx = gx + (gw * i) / 6; ctx.beginPath(); ctx.moveTo(xx, gy); ctx.lineTo(xx, gy + gh); ctx.stroke(); }
 
     if (pos) {
       const level = (v, color, label, dash) => {
@@ -687,12 +827,27 @@
     }
 
     const up = prices[prices.length - 1] >= prices[0];
-    ctx.strokeStyle = up ? C.green : C.red; ctx.lineWidth = 2;
-    ctx.beginPath(); prices.forEach((v, i) => (i ? ctx.lineTo(X(i), Y(v)) : ctx.moveTo(X(i), Y(v)))); ctx.stroke();
+    const lineColor = up ? C.green : C.red;
     const li = prices.length - 1;
-    ctx.save(); ctx.shadowColor = pos ? C.gold : C.white; ctx.shadowBlur = 10;
-    ctx.fillStyle = pos ? C.gold : C.white;
-    ctx.beginPath(); ctx.arc(X(li), Y(prices[li]), 4, 0, Math.PI * 2); ctx.fill(); ctx.restore();
+    // glowing area under the price line
+    const fill = ctx.createLinearGradient(0, gy, 0, gy + gh);
+    fill.addColorStop(0, up ? "rgba(43,255,163,.28)" : "rgba(255,61,110,.28)");
+    fill.addColorStop(1, "rgba(0,0,0,0)");
+    ctx.beginPath(); prices.forEach((v, i) => (i ? ctx.lineTo(X(i), Y(v)) : ctx.moveTo(X(i), Y(v))));
+    ctx.lineTo(X(li), gy + gh); ctx.lineTo(X(0), gy + gh); ctx.closePath();
+    ctx.fillStyle = fill; ctx.fill();
+    ctx.beginPath(); prices.forEach((v, i) => (i ? ctx.lineTo(X(i), Y(v)) : ctx.moveTo(X(i), Y(v))));
+    ctx.lineJoin = "round";
+    neonStroke(lineColor, 0.9, 2);
+    // the live price: a pulsing beacon
+    const beacon = pos ? C.gold : C.white;
+    ctx.save(); ctx.shadowColor = beacon; ctx.shadowBlur = 14;
+    ctx.fillStyle = beacon;
+    ctx.beginPath(); ctx.arc(X(li), Y(prices[li]), 3.5, 0, Math.PI * 2); ctx.fill(); ctx.restore();
+    const pr = 4 + ((now / 25) % 14);
+    ctx.beginPath(); ctx.arc(X(li), Y(prices[li]), pr, 0, Math.PI * 2);
+    ctx.strokeStyle = beacon; ctx.globalAlpha = 1 - (pr - 4) / 14; ctx.lineWidth = 1; ctx.stroke();
+    ctx.globalAlpha = 1;
   }
 
   function pointOn(pts, t) {
@@ -711,34 +866,55 @@
 
   const ease = (t) => (t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2);
 
+  // Signals are light trails: a bright head with a fading tail, added like light.
   function drawParticles(now) {
+    ctx.save();
+    ctx.globalCompositeOperation = "lighter";
     for (const p of fx.particles) {
       const e = ease((now - p.t0) / p.dur);
-      ctx.save(); ctx.shadowColor = p.color; ctx.shadowBlur = 16; ctx.fillStyle = p.color;
-      for (let k = 3; k >= 0; k--) {
-        const q = pointOn(p.pts, Math.max(0, e - k * 0.04));
-        ctx.globalAlpha = k ? 0.18 * (4 - k) : 1;
-        ctx.beginPath(); ctx.arc(q.x, q.y, p.size * (k ? 0.7 : 1), 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath();
+      for (let k = 0; k <= 10; k++) {
+        const q = pointOn(p.pts, Math.max(0, e - k * 0.025));
+        k ? ctx.lineTo(q.x, q.y) : ctx.moveTo(q.x, q.y);
       }
-      ctx.restore();
+      ctx.shadowColor = p.color; ctx.shadowBlur = 14;
+      ctx.strokeStyle = p.color; ctx.globalAlpha = 0.55; ctx.lineWidth = p.size * 0.9; ctx.lineCap = "round";
+      ctx.stroke();
+      const head = pointOn(p.pts, e);
+      ctx.globalAlpha = 1; ctx.fillStyle = "#ffffff";
+      ctx.beginPath(); ctx.arc(head.x, head.y, p.size * 0.55, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = p.color;
+      ctx.beginPath(); ctx.arc(head.x, head.y, p.size, 0, Math.PI * 2); ctx.fill();
     }
+    ctx.restore();
   }
 
   function drawFloats(now) {
     for (const f of fx.floats) {
       const t = (now - f.t0) / FLOAT_LIFE;
       ctx.globalAlpha = 1 - t * t;
-      text(f.text, f.x, f.y - t * 34, 14, f.color, 700);
+      ctx.letterSpacing = "1px";
+      text(f.text, f.x, f.y - t * 34, 13, f.color, 700, "center", TITLE_FONT, 12);
+      ctx.letterSpacing = "0px";
     }
     ctx.globalAlpha = 1;
   }
 
+  // "DAY 2": a glitching holographic banner, with the color channels split apart.
   function drawBanner(now) {
     if (!fx.banner) return;
     const t = (now - fx.banner.t0) / 2200;
     if (t >= 1) { fx.banner = null; return; }
-    ctx.globalAlpha = Math.sin(t * Math.PI) * 0.9;
-    text(fx.banner.text, W / 2, 395, 44, C.white, 700);
+    const a = Math.sin(t * Math.PI);
+    const jitter = Math.random() < 0.15 ? (Math.random() - 0.5) * 10 : 0;
+    const label = fx.banner.text.toUpperCase();
+    ctx.letterSpacing = "8px";
+    ctx.globalAlpha = a * 0.6;
+    text(label, W / 2 - 3 + jitter, HORIZON, 46, C.magenta, 900, "center", TITLE_FONT);
+    text(label, W / 2 + 3 - jitter, HORIZON, 46, C.cyan, 900, "center", TITLE_FONT);
+    ctx.globalAlpha = a;
+    text(label, W / 2, HORIZON, 46, C.white, 900, "center", TITLE_FONT, 20);
+    ctx.letterSpacing = "0px";
     ctx.globalAlpha = 1;
   }
 
@@ -790,7 +966,7 @@
 
   // ---------- 3D view, loaded on first use ----------
   const handles = {
-    W, H, C, PLACES, SPARK_POINTS, FLOAT_LIFE,
+    W, H, C, NEON, PLACES, SPARK_POINTS, FLOAT_LIFE,
     exchanges, center, roadPaths, pointOn, ease, dayPhase, money, SCORED, STATUS, survival,
     get state() { return state; }, get fx() { return fx; }, get meta() { return meta; },
     get audit() { return audit; }, get done() { return !!audit && P >= groups.length; },

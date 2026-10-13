@@ -3,9 +3,14 @@
 // The 2D map's (x, y) becomes the ground plane: world X = x - 600, world Z = y - 360.
 import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
+import { EffectComposer } from "three/addons/postprocessing/EffectComposer.js";
+import { RenderPass } from "three/addons/postprocessing/RenderPass.js";
+import { UnrealBloomPass } from "three/addons/postprocessing/UnrealBloomPass.js";
+import { OutputPass } from "three/addons/postprocessing/OutputPass.js";
 
 const HEIGHT = { squad: 45, commander: 85, hq: 140, gate: 80, tower: 230, bank: 55 };
 const MAX_PARTICLES = 300;
+const GLASS = 0x070d22;  // dark glass the neon edges sit on
 
 export function create(container, Z) {
   const { C } = Z;
@@ -21,7 +26,7 @@ export function create(container, Z) {
   const octx = overlay.getContext("2d");
 
   const scene = new THREE.Scene();
-  scene.fog = new THREE.Fog(0x070b16, 1600, 3200);
+  scene.fog = new THREE.Fog(0x0a0620, 1200, 3000);
   const camera = new THREE.PerspectiveCamera(42, 1, 10, 6000);
   camera.position.set(0, 640, 780);
   const controls = new OrbitControls(camera, renderer.domElement);
@@ -31,76 +36,157 @@ export function create(container, Z) {
   controls.minDistance = 300;
   controls.maxDistance = 2600;
 
-  // ---------- light: the sun follows the city clock ----------
-  const hemi = new THREE.HemisphereLight(0x9fb4ff, 0x0b1020, 0.6);
-  const sun = new THREE.DirectionalLight(0xffe2b0, 1.2);
-  scene.add(hemi, sun, new THREE.AmbientLight(0x404a70, 0.35));
+  // ---------- light: dim moonlight; the neon does the rest ----------
+  const hemi = new THREE.HemisphereLight(0x6f7dff, 0x05020f, 0.5);
+  const sun = new THREE.DirectionalLight(0xb9a6ff, 0.6);
+  scene.add(hemi, sun, new THREE.AmbientLight(0x1a2050, 0.6));
 
-  // ---------- ground and roads ----------
-  const ground = new THREE.Mesh(new THREE.PlaneGeometry(2600, 1800),
-    new THREE.MeshStandardMaterial({ color: 0x0d1428, roughness: 1 }));
+  // glowing edges around any mesh: the core of the cyber look
+  function neonEdges(geometry, color, opacity = 0.9) {
+    return new THREE.LineSegments(new THREE.EdgesGeometry(geometry, 20),
+      new THREE.LineBasicMaterial({ color, transparent: true, opacity }));
+  }
+
+  // ---------- ground: black glass under a neon grid ----------
+  const ground = new THREE.Mesh(new THREE.PlaneGeometry(4000, 3000),
+    new THREE.MeshStandardMaterial({ color: 0x020409, roughness: 0.35, metalness: 0.6 }));
   ground.rotation.x = -Math.PI / 2;
   scene.add(ground);
+  const grid = new THREE.GridHelper(4000, 100, 0x00e5ff, 0x00e5ff);
+  grid.material.transparent = true; grid.material.opacity = 0.16;
+  grid.position.y = 0.3;
+  scene.add(grid);
 
-  const roadMat = new THREE.MeshStandardMaterial({ color: 0x1b2747, roughness: 0.9 });
+  // roads: dark lanes with a glowing cyan line down the middle
+  const roadMat = new THREE.MeshStandardMaterial({ color: 0x061024, roughness: 0.6, metalness: 0.4 });
+  const laneMat = new THREE.MeshBasicMaterial({ color: 0x00e5ff, transparent: true, opacity: 0.75 });
   for (const [pts, width] of Z.roadPaths()) {
     for (let i = 1; i < pts.length; i++) {
       const a = pts[i - 1], b = pts[i];
       const len = Math.hypot(b.x - a.x, b.y - a.y);
       if (len < 1) continue;
+      const angle = -Math.atan2(b.y - a.y, b.x - a.x);
       const seg = new THREE.Mesh(new THREE.BoxGeometry(len + width, 1, width * 1.6), roadMat);
       seg.position.set(wx((a.x + b.x) / 2), 0.6, wz((a.y + b.y) / 2));
-      seg.rotation.y = -Math.atan2(b.y - a.y, b.x - a.x);
-      scene.add(seg);
+      seg.rotation.y = angle;
+      const lane = new THREE.Mesh(new THREE.BoxGeometry(len, 0.4, 1.2), laneMat);
+      lane.position.set(seg.position.x, 1.4, seg.position.z);
+      lane.rotation.y = angle;
+      scene.add(seg, lane);
     }
   }
 
-  // ---------- buildings ----------
+  // ---------- skyline: a ring of dark towers with neon crowns around the city ----------
+  {
+    let seed = 7;
+    const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+    const spots = [];
+    while (spots.length < 140) {
+      const x = (rnd() - 0.5) * 3600, z = (rnd() - 0.5) * 2600;
+      if (Math.abs(x) < 820 && z > -560 && z < 560) continue;  // keep the city itself clear
+      spots.push({ x, z, w: 40 + rnd() * 90, h: 80 + rnd() * rnd() * 520, crown: rnd() });
+    }
+    const towers = new THREE.InstancedMesh(new THREE.BoxGeometry(1, 1, 1),
+      new THREE.MeshStandardMaterial({ color: GLASS, roughness: 0.3, metalness: 0.7 }), spots.length);
+    const crowns = new THREE.InstancedMesh(new THREE.BoxGeometry(1, 1, 1), new THREE.MeshBasicMaterial(), spots.length);
+    const m = new THREE.Object3D(), col = new THREE.Color();
+    spots.forEach((s, i) => {
+      m.position.set(s.x, s.h / 2, s.z); m.scale.set(s.w, s.h, s.w); m.updateMatrix();
+      towers.setMatrixAt(i, m.matrix);
+      m.position.set(s.x, s.h + 1, s.z); m.scale.set(s.w + 2, 3, s.w + 2); m.updateMatrix();
+      crowns.setMatrixAt(i, m.matrix);
+      crowns.setColorAt(i, col.set(s.crown < 0.45 ? 0x00e5ff : s.crown < 0.8 ? 0xff2bd6 : 0xb56bff));
+    });
+    scene.add(towers, crowns);
+  }
+
+  // ---------- window lights: one procedural texture, tiled on every building ----------
+  const windowImage = (() => {
+    const c = document.createElement("canvas");
+    c.width = 64; c.height = 64;
+    const g = c.getContext("2d");
+    g.fillStyle = "#000"; g.fillRect(0, 0, 64, 64);
+    let seed = 3;
+    const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+    for (let y = 4; y < 64; y += 8) for (let x = 3; x < 64; x += 8) {
+      const v = rnd();
+      if (v < 0.45) continue;  // dark window
+      g.fillStyle = `rgba(255,255,255,${0.35 + v * 0.65})`;
+      g.fillRect(x, y, 4, 3);
+    }
+    return c;
+  })();
+  function windowsFor(w, h) {
+    const t = new THREE.CanvasTexture(windowImage);
+    t.wrapS = t.wrapT = THREE.RepeatWrapping;
+    t.repeat.set(Math.max(1, w / 48), Math.max(1, h / 48));
+    t.colorSpace = THREE.SRGBColorSpace;
+    return t;
+  }
+
+  // ---------- buildings: dark glass with neon edges and glowing windows ----------
   const buildings = {};
   for (const [name, p] of Object.entries(Z.PLACES)) {
     const h = HEIGHT[p.kind] || 50;
-    const color = p.kind === "hq" ? 0x2a2f4a : p.kind === "bank" ? 0x2b2a22 : 0x18233f;
-    const mat = new THREE.MeshStandardMaterial({ color, roughness: 0.55, metalness: 0.25, emissive: 0x000000 });
+    const neon = Z.NEON[p.kind];
+    const lit = p.kind !== "gate" && p.kind !== "tower";  // shield and spire stay smooth
+    const mat = new THREE.MeshStandardMaterial({ color: GLASS, roughness: 0.25, metalness: 0.75,
+                                                 emissive: new THREE.Color(neon), emissiveIntensity: lit ? 0.7 : 0.06,
+                                                 emissiveMap: lit ? windowsFor(p.w, h) : null });
     const group = new THREE.Group();
-    let body;
-    if (p.kind === "gate") {
-      body = new THREE.Mesh(new THREE.CylinderGeometry(p.w / 2, p.w / 2.6, h, 6), mat);
-    } else if (p.kind === "tower") {
-      body = new THREE.Mesh(new THREE.BoxGeometry(p.w * 0.45, h, p.w * 0.45), mat);
-    } else {
-      body = new THREE.Mesh(new THREE.BoxGeometry(p.w, h, p.h * 0.9), mat);
-    }
+    let geo;
+    if (p.kind === "gate") geo = new THREE.CylinderGeometry(p.w / 2, p.w / 2.6, h, 6);
+    else if (p.kind === "tower") geo = new THREE.CylinderGeometry(p.w * 0.12, p.w * 0.3, h, 6);
+    else geo = new THREE.BoxGeometry(p.w, h, p.h * 0.9);
+    const body = new THREE.Mesh(geo, mat);
     body.position.y = h / 2;
-    group.add(body);
-    if (p.kind === "bank") {  // a triangular pediment roof
-      const roof = new THREE.Mesh(new THREE.CylinderGeometry(p.h * 0.55, p.h * 0.55, p.w + 12, 3),
-        new THREE.MeshStandardMaterial({ color: 0x8a6a2a, roughness: 0.6, metalness: 0.4 }));
-      roof.rotation.z = Math.PI / 2;
-      roof.position.y = h + p.h * 0.25;
-      group.add(roof);
+    const edges = neonEdges(geo, neon);
+    edges.position.y = h / 2;
+    group.add(body, edges);
+    if (p.kind === "bank") {  // a triangular pediment roof, edged in gold
+      const roofGeo = new THREE.CylinderGeometry(p.h * 0.55, p.h * 0.55, p.w + 12, 3);
+      const roof = new THREE.Mesh(roofGeo, mat);
+      const roofEdges = neonEdges(roofGeo, neon);
+      for (const r of [roof, roofEdges]) { r.rotation.z = Math.PI / 2; r.position.y = h + p.h * 0.25; }
+      group.add(roof, roofEdges);
     }
-    let eye = null, pupil = null;
-    if (p.kind === "tower") {  // Ultron's eye
+    let eye = null, pupil = null, ring = null;
+    if (p.kind === "tower") {  // Ultron's eye, with a halo
       eye = new THREE.Mesh(new THREE.SphereGeometry(20, 24, 16),
-        new THREE.MeshStandardMaterial({ color: 0x111827, emissive: 0xa78bfa, emissiveIntensity: 0.5 }));
+        new THREE.MeshStandardMaterial({ color: 0x05030c, emissive: 0xb56bff, emissiveIntensity: 0.4 }));
       eye.position.y = h + 18;
-      pupil = new THREE.Mesh(new THREE.SphereGeometry(7, 16, 12), new THREE.MeshBasicMaterial({ color: 0xa78bfa }));
-      group.add(eye, pupil);
+      pupil = new THREE.Mesh(new THREE.SphereGeometry(7, 16, 12), new THREE.MeshBasicMaterial({ color: 0xb56bff }));
+      ring = new THREE.Mesh(new THREE.TorusGeometry(32, 1.2, 8, 48), new THREE.MeshBasicMaterial({ color: 0xb56bff }));
+      ring.position.y = h + 18;
+      group.add(eye, pupil, ring);
+    }
+    if (p.kind === "hq") {  // holographic rings spinning over headquarters
+      ring = new THREE.Group();
+      [0, 1].forEach((i) => {
+        const t = new THREE.Mesh(new THREE.TorusGeometry(p.w * 0.45 - i * 18, 1.5, 8, 64),
+          new THREE.MeshBasicMaterial({ color: i ? 0x00e5ff : 0xffcf4a, transparent: true, opacity: 0.85 }));
+        t.rotation.x = Math.PI / 2;
+        t.position.y = i * 16;
+        ring.add(t);
+      });
+      ring.position.y = h + 30;
+      group.add(ring);
     }
     group.position.set(wx(p.x), 0, wz(p.y));
     scene.add(group);
-    buildings[name] = { group, mat, h, p, eye, pupil };
+    buildings[name] = { group, mat, edges, neon, h, p, eye, pupil, ring, base: lit ? 0.7 : 0.06 };
   }
 
-  // ---------- exchanges: platforms with 3D price bars ----------
+  // ---------- exchanges: holo platforms with glowing price bars ----------
   const exchanges = Z.exchanges().map((ex) => {
     const cx = wx(ex.x + ex.w / 2), cz = wz(ex.y + ex.h / 2);
-    const base = new THREE.Mesh(new THREE.BoxGeometry(ex.w, 6, ex.h * 0.8),
-      new THREE.MeshStandardMaterial({ color: 0x111a33, roughness: 0.8 }));
-    base.position.set(cx, 3, cz);
-    scene.add(base);
+    const baseGeo = new THREE.BoxGeometry(ex.w, 6, ex.h * 0.8);
+    const base = new THREE.Mesh(baseGeo, new THREE.MeshStandardMaterial({ color: GLASS, roughness: 0.3, metalness: 0.7 }));
+    const baseEdges = neonEdges(baseGeo, 0x00e5ff, 0.7);
+    for (const b of [base, baseEdges]) b.position.set(cx, 3, cz);
+    scene.add(base, baseEdges);
     const bars = new THREE.InstancedMesh(new THREE.BoxGeometry(1, 1, 1),
-      new THREE.MeshStandardMaterial({ roughness: 0.5, metalness: 0.1 }), Z.SPARK_POINTS);
+      new THREE.MeshBasicMaterial({ transparent: true, opacity: 0.85 }), Z.SPARK_POINTS);
     bars.count = 0;
     scene.add(bars);
     const level = (color) => {  // a thin bar across the chart, just in front of the price bars
@@ -122,11 +208,21 @@ export function create(container, Z) {
     return m;
   });
 
+  // ---------- bloom: makes every neon line and orb actually glow ----------
+  const composer = new EffectComposer(renderer);
+  composer.addPass(new RenderPass(scene, camera));
+  // strength, radius, threshold: only bright things (neon lines, orbs) bloom, not whole surfaces
+  const bloom = new UnrealBloomPass(new THREE.Vector2(256, 256), 0.75, 0.4, 0.5);
+  composer.addPass(bloom);
+  composer.addPass(new OutputPass());
+
   // ---------- sizing ----------
   function resize() {
     const w = container.clientWidth, h = container.clientHeight;
     if (!w || !h) return;
     renderer.setSize(w, h, false);
+    composer.setSize(w, h);
+    bloom.setSize(w, h);
     renderer.domElement.style.width = w + "px";
     renderer.domElement.style.height = h + "px";
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
@@ -142,7 +238,8 @@ export function create(container, Z) {
 
   // sky gets its own Color: scene.background keeps a reference, so it must not be reused
   const sky = new THREE.Color(), barColor = new THREE.Color();
-  const night = new THREE.Color(0x060914), day = new THREE.Color(0x1d3460);
+  const night = new THREE.Color(0x020109), day = new THREE.Color(0x160a30);  // always night; day is a violet dusk
+  const edgeColor = new THREE.Color();
   const dummy = new THREE.Object3D();
   const vec = new THREE.Vector3();
 
@@ -155,11 +252,14 @@ export function create(container, Z) {
   function label(text, x, y, z, size, color, weight = 600) {
     const s = toScreen(x, y, z);
     if (!s) return;
-    octx.font = `${weight} ${size}px "Segoe UI", system-ui, sans-serif`;
+    octx.font = `${weight} ${size}px "Orbitron", "Segoe UI", system-ui, sans-serif`;
+    octx.letterSpacing = "1px";
     octx.textAlign = "center"; octx.textBaseline = "middle";
-    octx.lineWidth = 3; octx.strokeStyle = "rgba(5,8,18,0.85)";
+    octx.lineWidth = 3; octx.strokeStyle = "rgba(2,4,12,0.9)";
     octx.strokeText(text, s.x, s.y);
+    octx.save(); octx.shadowColor = color; octx.shadowBlur = 10;
     octx.fillStyle = color; octx.fillText(text, s.x, s.y);
+    octx.restore();
   }
 
   function render(now) {
@@ -173,20 +273,31 @@ export function create(container, Z) {
     scene.fog.color.copy(sky);
     const ang = ph * Math.PI;
     sun.position.set(-Math.cos(ang) * 900, 80 + Math.sin(ang) * 900, -350);
-    sun.intensity = 0.15 + light * 1.2;
-    hemi.intensity = 0.35 + light * 0.4;
+    sun.intensity = 0.35 + light * 0.5;
+    hemi.intensity = 0.4 + light * 0.3;
 
-    // buildings glow when their worker acts; HQ windows light up at night
+    // buildings flare when their worker acts; otherwise their neon edges breathe softly
     for (const [name, b] of Object.entries(buildings)) {
       const g = fx.glows[name];
       if (g && now < g.until) {
+        const k = Math.min(1, (g.until - now) / 700);
         b.mat.emissive.set(g.color);
-        b.mat.emissiveIntensity = 0.25 + 0.9 * Math.min(1, (g.until - now) / 700);
-      } else if (b.p.kind === "hq") {
-        b.mat.emissive.set(C.gold);
-        b.mat.emissiveIntensity = Math.max(0, 0.35 - light * 0.35);
+        b.mat.emissiveIntensity = b.base + (b.mat.emissiveMap ? 0.5 : 0.22) * k;  // windows flare
+        b.edges.material.color.set(g.color);
+        b.edges.material.opacity = 1;
       } else {
-        b.mat.emissiveIntensity = 0;
+        b.mat.emissive.set(b.neon);
+        b.mat.emissiveIntensity = b.base;
+        b.edges.material.color.copy(edgeColor.set(b.neon));
+        b.edges.material.opacity = 0.6 + 0.25 * Math.sin(now / 900 + b.p.x);
+      }
+      if (b.ring && b.p.kind === "hq") {
+        b.ring.children[0].rotation.z = now / 1400;
+        b.ring.children[1].rotation.z = -now / 900;
+        b.ring.position.y = b.h + 30 + Math.sin(now / 700) * 4;
+      } else if (b.ring) {
+        b.ring.rotation.x = Math.PI / 2 + Math.sin(now / 1100) * 0.4;
+        b.ring.rotation.y = now / 1300;
       }
     }
 
@@ -196,6 +307,7 @@ export function create(container, Z) {
       const iris = Z.done ? (Z.audit.ok ? C.green : C.red) : C.violet;
       u.eye.material.emissive.set(iris);
       u.pupil.material.color.set(iris);
+      u.ring.material.color.set(iris);
       const t = fx.eyeTarget || { x: u.p.x, y: u.p.y + 200 };
       const a = Math.atan2(wz(t.y) - wz(u.p.y), wx(t.x) - wx(u.p.x));
       u.pupil.position.set(Math.cos(a) * 15, u.eye.position.y, Math.sin(a) * 15);
@@ -221,7 +333,9 @@ export function create(container, Z) {
         dummy.scale.set(step * 0.7, hgt, 26);
         dummy.updateMatrix();
         e.bars.setMatrixAt(i, dummy.matrix);
-        e.bars.setColorAt(i, barColor.set(i && v < prices[i - 1] ? C.red : C.green));
+        // dimmed so a wall of bars doesn't bloom into a white blob; the newest bar shines
+        barColor.set(i && v < prices[i - 1] ? C.red : C.green).multiplyScalar(i === prices.length - 1 ? 1 : 0.35);
+        e.bars.setColorAt(i, barColor);
       });
       e.bars.instanceMatrix.needsUpdate = true;
       if (e.bars.instanceColor) e.bars.instanceColor.needsUpdate = true;
@@ -245,7 +359,7 @@ export function create(container, Z) {
     }
     for (; n < MAX_PARTICLES && orbs[n].visible; n++) orbs[n].visible = false;
 
-    renderer.render(scene, camera);
+    composer.render();
 
     // labels, floating results and the day banner, drawn flat over the 3D scene
     octx.clearRect(0, 0, container.clientWidth, container.clientHeight);
@@ -285,6 +399,7 @@ export function create(container, Z) {
 
   function dispose() {
     ro.disconnect();
+    composer.dispose();
     controls.dispose();
     renderer.dispose();
     container.textContent = "";
