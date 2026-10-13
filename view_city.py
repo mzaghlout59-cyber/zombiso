@@ -17,6 +17,7 @@ ROOT = Path(__file__).resolve().parent
 VIEWER_DIR = ROOT / "viewer"
 RUNS_DIR = ROOT / "data" / "runs"
 RUN_FILES = {"meta.json", "events.jsonl", "audit.json", "ledger.json", "report.html"}
+TRIAL_SCORES = ROOT / "data" / "trial" / "scores.json"  # served at /trial/scores.json
 
 
 def latest_run(runs_dir=RUNS_DIR):
@@ -40,6 +41,8 @@ def make_handler(fixed_run=None):
                 if run is None or name not in RUN_FILES:
                     return str(VIEWER_DIR / "__missing__")
                 return str(run / name)
+            if clean == "/trial/scores.json":
+                return str(TRIAL_SCORES)
             return super().translate_path(path)
 
         def end_headers(self):

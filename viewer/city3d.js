@@ -249,10 +249,16 @@ export function create(container, Z) {
 
     // labels, floating results and the day banner, drawn flat over the 3D scene
     octx.clearRect(0, 0, container.clientWidth, container.clientHeight);
-    for (const b of Object.values(buildings)) {
-      label(b.p.kind === "bank" ? `Treasury ${Z.money(state.startEquity + state.realized)}` : b.p.title,
-            wx(b.p.x), b.h + (b.p.kind === "tower" ? 60 : b.p.kind === "bank" ? 45 : 18), wz(b.p.y),
-            b.p.kind === "squad" ? 12 : 14, b.p.kind === "tower" ? C.violet : C.text);
+    for (const [name, b] of Object.entries(buildings)) {
+      let text = b.p.kind === "bank" ? `Treasury ${Z.money(state.startEquity + state.realized)}` : b.p.title;
+      let color = b.p.kind === "tower" ? C.violet : C.text;
+      if (Z.SCORED.includes(name)) {  // survival: health next to the name
+        const life = Z.survival(name);
+        color = Z.STATUS[life.status][1];
+        text = `${life.status === "dying" ? "☠ " : ""}${text}${life.acc != null ? ` ${life.acc}%` : ""}`;
+      }
+      label(text, wx(b.p.x), b.h + (b.p.kind === "tower" ? 60 : b.p.kind === "bank" ? 45 : 18), wz(b.p.y),
+            b.p.kind === "squad" ? 12 : 14, color);
     }
     for (const e of exchanges) {
       const prices = state.prices[e.ex.sym] || [];

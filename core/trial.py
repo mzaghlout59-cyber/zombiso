@@ -204,7 +204,14 @@ def update(runs_dir=Path("data/runs"), trial_dir=TRIAL_DIR):
     trial = load(trial_dir)
     if trial is None:
         return None
-    s = score(market_runs(runs_dir, trial["started"]))
+    runs = market_runs(runs_dir, trial["started"])
+    s = score(runs)
     v = verdict(s, trial)
     (trial_dir / "scorecard.html").write_text(to_html(s, v, trial), encoding="utf-8")
+    # For the viewer's survival board: finished days only; the viewer adds today live.
+    (trial_dir / "scores.json").write_text(json.dumps({
+        "started": trial["started"], "days_done": v["days_done"], "days_total": v["days_total"],
+        "status": v["status"], "runs": [d.name for d in runs], "agents": s["agents"],
+        "min_votes": settings.TRIAL_MIN_AGENT_VOTES, "min_accuracy": settings.TRIAL_MIN_AGENT_ACCURACY,
+    }, indent=2), encoding="utf-8")
     return s, v

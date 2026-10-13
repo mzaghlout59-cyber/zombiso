@@ -47,6 +47,14 @@
     up: C.green, bullish: C.green, breakout: C.green, positive: C.green, buy: C.gold,
     down: C.red, bearish: C.red, breakdown: C.red, negative: C.red,
   };
+  // Who gets scored on the survival board, and how their reading votes (same as core/trial.py).
+  const VOTERS = {
+    MarketResearch: ["Scout", "trend", { up: "buy", down: "sell" }],
+    Sentiment: ["Pulse", "crowd_mood", { bullish: "buy", bearish: "sell" }],
+    Charts: ["Lens", "pattern", { breakout: "buy", breakdown: "sell" }],
+    NewsResearch: ["News", "sentiment", { positive: "buy", negative: "sell" }],
+  };
+  const SCORED = ["Scout", "Pulse", "Lens", "News", "Axiom"];
   const DEFAULT_META = {
     run_id: "unknown", cycles_per_day: 20, watchlist: null, max_open_positions: 3,
     max_daily_loss: 100, max_risk_per_trade: 25, take_profit_rr: 2,
@@ -97,7 +105,9 @@
     return { tick: 0, day: 0, prices, open: {}, realized: 0, dayPnl: {}, trades: 0,
              wins: 0, losses: 0, decisions: {}, feed: [], seenDay: -1, book: null, score: null,
              startEquity: meta.start_equity || meta.account_size || 10000,
-             briefing: null, newsSeen: {} };
+             briefing: null, newsSeen: {},
+             // live agent scoring for this run: readings this tick, votes per open trade, results
+             reports: {}, votes: {}, live: Object.fromEntries(SCORED.map((n) => [n, { right: 0, wrong: 0 }])) };
   }
 
   const money = (v) => (v < 0 ? "-$" : "$") + Math.abs(v).toFixed(2);
@@ -121,6 +131,7 @@
         break;
       }
       case "agent_report":
+        if (VOTERS[e.agent]) s.reports[`${e.symbol}|${e.agent}`] = e.result || {};
         if (e.agent === "PortfolioManager") s.book = e.result;
         if (e.agent === "PerformanceAnalyst") s.score = e.result;
         if (e.agent === "NewsResearch" && e.result && e.result.status === "active"
@@ -131,6 +142,7 @@
         }
         break;
       case "tick":
+        s.reports = {};
         s.tick = e.tick;
         if (e.day !== s.seenDay) { pushFeed(s, e.tick, `Day ${e.day + 1} begins`, "day"); s.seenDay = e.day; }
         s.day = e.day;
@@ -143,12 +155,24 @@
           else pushFeed(s, e.tick, `${e.symbol} skipped: Sage confidence ${e.confidence}`, "deny");
         }
         break;
-      case "trade_opened":
+      case "trade_opened": {
+        const v = { Axiom: "buy" };
+        for (const [agent, [name, field, rule]] of Object.entries(VOTERS)) {
+          const vote = rule[(s.reports[`${e.symbol}|${agent}`] || {})[field]];
+          if (vote) v[name] = vote;
+        }
+        s.votes[e.trade_id] = v;
         s.open[e.trade_id] = e; s.trades++;
         pushFeed(s, e.tick, `Opened #${e.trade_id} ${e.symbol}: ${e.size} @ ${e.entry.toFixed(2)}, stop ${e.stop_loss.toFixed(2)}`, "open");
         break;
+      }
       case "trade_closed": {
         delete s.open[e.trade_id];
+        for (const [name, vote] of Object.entries(s.votes[e.trade_id] || {})) {
+          const right = vote === "buy" ? e.pnl > 0 : e.pnl <= 0;
+          s.live[name][right ? "right" : "wrong"]++;
+        }
+        delete s.votes[e.trade_id];
         s.realized += e.pnl;
         s.dayPnl[e.day] = (s.dayPnl[e.day] || 0) + e.pnl;
         if (e.pnl >= 0) s.wins++; else s.losses++;
@@ -282,6 +306,54 @@
     el.classList.toggle("pos", v > 0); el.classList.toggle("neg", v < 0);
   }
 
+  // ---------- survival board ----------
+  let trialScores = null;  // finished trial days, from /trial/scores.json
+
+  // An agent's record: finished trial days (market runs only) plus this run so far.
+  function survival(name) {
+    const min = { votes: trialScores ? trialScores.min_votes : 10, acc: trialScores ? trialScores.min_accuracy : 50 };
+    let right = state.live[name].right, wrong = state.live[name].wrong;
+    const inTrial = trialScores && meta.source === "alpaca";
+    if (inTrial) {
+      const past = trialScores.agents[name] || { right: 0, wrong: 0 };
+      if (trialScores.runs.includes(runId)) { right = 0; wrong = 0; }  // today already counted
+      right += past.right; wrong += past.wrong;
+    }
+    const votes = right + wrong, acc = votes ? Math.round((right / votes) * 100) : null;
+    const status = votes < min.votes ? "early" : acc < min.acc ? "dying" : acc < min.acc + 10 ? "risk" : "safe";
+    return { right, votes, acc, status, inTrial };
+  }
+  const STATUS = {
+    safe: ["Safe", C.green], risk: ["At risk", C.amber], dying: ["Dying", C.red], early: ["Too early", C.gray],
+  };
+
+  let boardShown = "";
+  function renderBoard() {
+    const rows = SCORED.map((n) => ({ name: n, ...survival(n) }))
+      .sort((a, b) => (b.acc ?? -1) - (a.acc ?? -1));
+    const key = JSON.stringify(rows);
+    if (key === boardShown) return;
+    boardShown = key;
+    const first = rows[0];
+    $("board-title").textContent = first.inTrial
+      ? `Survival board · trial day ${Math.min(trialScores.days_done + (trialScores.runs.includes(runId) ? 0 : 1), trialScores.days_total)} of ${trialScores.days_total}`
+      : "Survival board · this practice run";
+    const ol = $("board"); ol.textContent = "";
+    for (const r of rows) {
+      const [label, color] = STATUS[r.status];
+      const li = document.createElement("li");
+      li.className = `agent ${r.status}`;
+      li.innerHTML = `<span class="who"></span><span class="bar"><i></i></span><span class="score"></span><span class="tag"></span>`;
+      li.querySelector(".who").textContent = (r.status === "dying" ? "☠ " : "") + r.name;
+      li.querySelector(".bar i").style.width = `${r.acc ?? 0}%`;
+      li.querySelector(".bar i").style.background = color;
+      li.querySelector(".score").textContent = r.votes ? `${r.acc}% · ${r.right}/${r.votes}` : "no votes yet";
+      const tag = li.querySelector(".tag");
+      tag.textContent = label; tag.style.color = color;
+      ol.append(li);
+    }
+  }
+
   let bookShown, scoreShown;
   function renderBooks() {
     const b = state.book, s = state.score;
@@ -349,6 +421,7 @@
 
     renderBooks();
     renderBriefing();
+    renderBoard();
 
     const scrub = $("scrub");
     scrub.max = groups.length;
@@ -538,7 +611,14 @@
       return;
     }
     const ty = p.kind === "gate" ? p.y - 14 : p.kind === "bank" ? p.y : p.y - (p.h > 60 ? 12 : 8);
-    text(p.title, p.x, ty, p.kind === "squad" ? 13 : 16, titleColor, 600);
+    const life = SCORED.includes(name) ? survival(name) : null;
+    if (life) {  // health bar under the building: how often this agent has been right
+      const bw = p.w - 12, bx = p.x - bw / 2, by = y + p.h + 5;
+      ctx.fillStyle = "#1a2643"; ctx.fillRect(bx, by, bw, 5);
+      ctx.fillStyle = STATUS[life.status][1]; ctx.fillRect(bx, by, bw * (life.acc ?? 0) / 100, 5);
+    }
+    const dying = life && life.status === "dying";
+    text((dying ? "☠ " : "") + p.title, p.x, ty, p.kind === "squad" ? 13 : 16, dying ? C.red : titleColor, 600);
     let sub = p.sub;
     if (p.kind === "bank" && state) sub = money(state.startEquity + state.realized);
     if (p.stub) sub += " (stub)";
@@ -699,6 +779,7 @@
           indexEvents();
         }
         if (!audit) audit = await getJSON("/run/audit.json");
+        trialScores = await getJSON("/trial/scores.json");
       }
     } catch (err) {
       console.warn("poll failed", err);
@@ -710,7 +791,7 @@
   // ---------- 3D view, loaded on first use ----------
   const handles = {
     W, H, C, PLACES, SPARK_POINTS, FLOAT_LIFE,
-    exchanges, center, roadPaths, pointOn, ease, dayPhase, money,
+    exchanges, center, roadPaths, pointOn, ease, dayPhase, money, SCORED, STATUS, survival,
     get state() { return state; }, get fx() { return fx; }, get meta() { return meta; },
     get audit() { return audit; }, get done() { return !!audit && P >= groups.length; },
   };

@@ -100,3 +100,7 @@ def test_update_writes_the_scorecard(tmp_path):
     page = (trial_dir / "scorecard.html").read_text(encoding="utf-8")
     assert v["days_done"] == 1 and "Day 1 of 7" in page
     assert "Agents: who helped, who hurt" in page and "report.html" in page
+    board = json.loads((trial_dir / "scores.json").read_text(encoding="utf-8"))
+    assert board["days_done"] == 1 and len(board["runs"]) == 1
+    assert board["agents"]["Axiom"]["votes"] == s["trades"]
+    assert board["min_votes"] == settings.TRIAL_MIN_AGENT_VOTES
