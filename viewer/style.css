@@ -142,6 +142,10 @@ aside ::-webkit-scrollbar-thumb { background: rgba(0, 229, 255, .3); }
 #controls a.button { color: #1a1205; background: var(--gold); border-color: var(--gold); box-shadow: 0 0 14px rgba(255, 207, 74, .45); }
 #controls a.button:hover { box-shadow: 0 0 24px rgba(255, 207, 74, .8); }
 #controls a.button[hidden] { display: none; }
+.views { display: flex; gap: 4px; }
+#controls .views button.on {
+  color: #02040b; background: var(--cyan); box-shadow: 0 0 18px rgba(0, 229, 255, .6);
+}
 #controls label { color: var(--muted); display: flex; align-items: center; gap: 8px; font: 500 9px var(--title); letter-spacing: .14em; text-transform: uppercase; }
 #scrub { flex: 1; accent-color: var(--magenta); }
 #scrub-label { color: var(--muted); font-variant-numeric: tabular-nums; min-width: 100px; text-align: right; }

@@ -64,7 +64,11 @@
   <footer id="controls">
     <button id="b-play" title="Play / pause (space)">Play</button>
     <button id="b-step" title="Next tick (right arrow)">Step</button>
-    <button id="b-view" title="Switch between the 2D map and the 3D city">3D view</button>
+    <div id="views" class="views" role="group" aria-label="View">
+      <button data-view="2d" title="Flat map of the city">Map</button>
+      <button data-view="3d" title="The city in 3D">City 3D</button>
+      <button data-view="galaxy" title="The city as a solar system, planets at their real positions">Galaxy</button>
+    </div>
     <a id="b-report" class="button" href="/run/report.html" target="_blank" rel="noopener" hidden>📄 Report</a>
     <label>Speed
       <select id="speed">

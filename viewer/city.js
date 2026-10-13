@@ -72,7 +72,7 @@
   let fx = freshFx();
   let stars = makeStars();
   const skyline = makeSkyline();  // distant towers behind the city, generated once
-  let mode3d = false;  // 3D view on? (renderer lives in viewer/city3d.js)
+  let view = "2d";  // "2d" map | "3d" city | "galaxy"
 
   function freshFx() { return { particles: [], glows: {}, floats: [], banner: null, eyeTarget: null, pulse: 0 }; }
 
@@ -499,7 +499,7 @@
 
   function draw(now) {
     pruneFx(now);
-    if (mode3d) {
+    if (view !== "2d") {
       const r3 = current3d();
       if (r3 && state) r3.render(now);
       return;
@@ -971,39 +971,50 @@
     get state() { return state; }, get fx() { return fx; }, get meta() { return meta; },
     get audit() { return audit; }, get done() { return !!audit && P >= groups.length; },
   };
-  let module3d = null, renderer3d = null, renderer3dRun = null;
+  // Three views: the 2D map (drawn here), the 3D city and the galaxy (each its own module,
+  // pulling three.js from the CDN on first use). Only one WebGL scene exists at a time.
+  const VIEW_MODULES = { "3d": "./city3d.js", galaxy: "./galaxy3d.js" };
+  const modules = {};
+  let renderer3d = null, renderer3dKey = null;
   async function setView(mode) {
-    const btn = $("b-view");
-    if (mode === "3d" && !module3d) {
-      btn.textContent = "Loading 3D...";
+    const btn = document.querySelector(`#views [data-view="${mode}"]`);
+    if (VIEW_MODULES[mode] && !modules[mode]) {
+      const label = btn.textContent;
+      btn.textContent = "Loading…";
       try {
-        module3d = await import("./city3d.js");  // pulls three.js from the CDN on first use
+        modules[mode] = await import(VIEW_MODULES[mode]);
       } catch (err) {
-        console.warn("3D view unavailable", err);
-        btn.textContent = "3D unavailable (offline?)";
+        console.warn(`${mode} view unavailable`, err);
+        btn.textContent = "Offline?";
+        setTimeout(() => (btn.textContent = label), 3000);
         return;
       }
+      btn.textContent = label;
     }
-    mode3d = mode === "3d";
-    $("city").hidden = mode3d;
-    $("city3d").hidden = !mode3d;
-    btn.textContent = mode3d ? "2D view" : "3D view";
+    view = mode;
+    $("city").hidden = mode !== "2d";
+    $("city3d").hidden = mode === "2d";
+    document.querySelectorAll("#views [data-view]").forEach((b) => b.classList.toggle("on", b.dataset.view === mode));
     try { localStorage.setItem("zcity-view", mode); } catch { /* storage blocked: fine */ }
   }
 
-  // The 3D scene is built once the run's data is in, and rebuilt when a new run starts
-  // (a new run can have a different watchlist, so different exchanges).
+  // A scene is built once the run's data is in, and rebuilt when the view or the run changes
+  // (a new run can have a different watchlist, so different exchanges or stock planets).
   function current3d() {
-    if (!mode3d || !module3d || !meta) return null;
-    if (!renderer3d || renderer3dRun !== runId) {
+    if (view === "2d" || !modules[view] || !meta) return null;
+    const key = `${view}|${runId}`;
+    if (!renderer3d || renderer3dKey !== key) {
       if (renderer3d) renderer3d.dispose();
-      renderer3d = module3d.create($("city3d"), handles);
-      renderer3dRun = runId;
+      renderer3d = modules[view].create($("city3d"), handles);
+      renderer3dKey = key;
     }
     return renderer3d;
   }
-  $("b-view").addEventListener("click", () => setView(mode3d ? "2d" : "3d"));
-  try { if (localStorage.getItem("zcity-view") === "3d") setView("3d"); } catch { /* ignore */ }
+  document.querySelectorAll("#views [data-view]").forEach((b) => b.addEventListener("click", () => setView(b.dataset.view)));
+  try {
+    const saved = localStorage.getItem("zcity-view");
+    setView(VIEW_MODULES[saved] ? saved : "2d");
+  } catch { setView("2d"); }
 
   // ---------- controls ----------
   $("b-play").addEventListener("click", () => {
