@@ -1,6 +1,5 @@
 """News, Research and the Claude helper, with Claude faked: no API calls, no cost."""
 import json
-from types import SimpleNamespace
 
 import pytest
 
@@ -14,37 +13,77 @@ from divisions.investment.agents import NewsResearchAgent
 from divisions.research.bureau import ResearchBureau
 
 
+class FakeResponse:
+    def __init__(self, status, data):
+        self.status_code, self._data, self.text = status, data, json.dumps(data)
+
+    def json(self):
+        return self._data
+
+
 class FakeClaude:
-    """Stands in for anthropic.Anthropic(); records each request."""
+    """Stands in for the HTTPS session; answers queued responses and records each request."""
 
-    def __init__(self, answer, stop_reason="end_turn"):
-        self.answer, self.stop_reason, self.calls = answer, stop_reason, []
-        self.beta = SimpleNamespace(messages=SimpleNamespace(create=self._create))
+    def __init__(self, answer=None, stop_reason="end_turn", responses=None):
+        ok = FakeResponse(200, {"stop_reason": stop_reason,
+                                "content": [{"type": "text", "text": json.dumps(answer)}]})
+        self.responses = list(responses or [ok])
+        self.calls = []
 
-    def _create(self, **kwargs):
-        self.calls.append(kwargs)
-        return SimpleNamespace(stop_reason=self.stop_reason,
-                               content=[SimpleNamespace(type="text", text=json.dumps(self.answer))])
+    def post(self, url, headers=None, json=None, timeout=None):
+        self.calls.append({"url": url, "headers": headers, "body": json})
+        return self.responses.pop(0)
 
 
 SCHEMA = {"type": "object", "properties": {"x": {"type": "string"}}, "required": ["x"],
           "additionalProperties": False}
 
 
-def test_ask_json_sends_model_schema_effort_and_fallbacks():
+@pytest.fixture
+def key(monkeypatch):
+    monkeypatch.setattr(settings, "ANTHROPIC_API_KEY", "test-key")
+    monkeypatch.setattr(llm.time, "sleep", lambda s: None)  # no real waiting between retries
+
+
+def test_ask_json_sends_model_schema_effort_and_fallbacks(key):
     fake = FakeClaude({"x": "hi"})
-    assert ask_json("sys", "prompt", SCHEMA, effort="low", client=fake) == {"x": "hi"}
-    req = fake.calls[0]
-    assert req["model"] == "claude-opus-5-5"
-    assert req["output_config"] == {"effort": "low", "format": {"type": "json_schema", "schema": SCHEMA}}
-    assert req["fallbacks"] == "default" and req["betas"] == [llm.FALLBACK_BETA]
-    assert req["system"] == "sys" and req["messages"] == [{"role": "user", "content": "prompt"}]
+    assert ask_json("sys", "prompt", SCHEMA, effort="low", session=fake) == {"x": "hi"}
+    call = fake.calls[0]
+    assert call["url"] == "https://api.anthropic.com/v1/messages"
+    assert call["headers"]["x-api-key"] == "test-key"
+    assert call["headers"]["anthropic-version"] == "2023-06-01"
+    assert call["headers"]["anthropic-beta"] == llm.FALLBACK_BETA
+    body = call["body"]
+    assert body["model"] == "claude-opus-5-5" and body["fallbacks"] == "default"
+    assert body["output_config"] == {"effort": "low", "format": {"type": "json_schema", "schema": SCHEMA}}
+    assert body["system"] == "sys" and body["messages"] == [{"role": "user", "content": "prompt"}]
 
 
 @pytest.mark.parametrize("stop", ["refusal", "max_tokens"])
-def test_ask_json_unusable_answers_raise(stop):
+def test_ask_json_unusable_answers_raise(key, stop):
     with pytest.raises(LLMUnavailable):
-        ask_json("s", "p", SCHEMA, client=FakeClaude({"x": "?"}, stop_reason=stop))
+        ask_json("s", "p", SCHEMA, session=FakeClaude({"x": "?"}, stop_reason=stop))
+
+
+def test_overloaded_then_ok_is_retried(key):
+    ok = FakeResponse(200, {"stop_reason": "end_turn", "content": [{"type": "text", "text": '{"x": "ok"}'}]})
+    busy = FakeResponse(529, {"error": {"message": "Overloaded"}})
+    fake = FakeClaude(responses=[busy, ok])
+    assert ask_json("s", "p", SCHEMA, session=fake) == {"x": "ok"}
+    assert len(fake.calls) == 2
+
+
+def test_bad_request_is_not_retried_and_says_why(key):
+    fake = FakeClaude(responses=[FakeResponse(400, {"error": {"message": "bad schema"}})])
+    with pytest.raises(LLMUnavailable, match="400: bad schema"):
+        ask_json("s", "p", SCHEMA, session=fake)
+    assert len(fake.calls) == 1
+
+
+def test_gives_up_after_repeated_server_errors(key):
+    fake = FakeClaude(responses=[FakeResponse(500, {"error": {"message": "boom"}})] * llm.RETRIES)
+    with pytest.raises(LLMUnavailable, match="after 3 tries"):
+        ask_json("s", "p", SCHEMA, session=fake)
 
 
 def test_no_key_means_unavailable(monkeypatch):

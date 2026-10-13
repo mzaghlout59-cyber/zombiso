@@ -22,7 +22,7 @@ from pathlib import Path
 
 from core import trial
 from core.alpaca import AlpacaError, AlpacaFeed, fetch_daily_bars, fetch_news, market_clock
-from core.llm import LLMUnavailable, make_client
+from core.llm import LLMUnavailable, check_ready
 from core.treasury import Treasury
 from divisions.research.bureau import ResearchBureau
 from run_city import WINDOW, build_city, new_run_dir, run_city
@@ -91,8 +91,8 @@ def main(argv=None):
             except KeyError:
                 print(f"  {sym}: no price")
         try:
-            make_client()
-            print("Claude: ANTHROPIC_API_KEY set and SDK loads (News and Research can run)")
+            check_ready()
+            print("Claude: ANTHROPIC_API_KEY set (News and Research can run)")
         except LLMUnavailable as e:
             print(f"Claude: unavailable, News stays neutral and no briefing ({e})")
         return 0
