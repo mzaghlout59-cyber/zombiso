@@ -13,6 +13,7 @@ close, so nothing is carried overnight. Trades are recorded only in the city's
 own PaperLedger; no order is ever sent to Alpaca or anywhere else.
 """
 import argparse
+import os
 import sys
 import time
 from datetime import datetime
@@ -62,6 +63,52 @@ def write_briefing(symbols, bureau=None, session=None):
     return briefing
 
 
+LOCK_PATH = Path("data/market_day.lock")
+
+
+def traded_today(runs_dir=Path("data/runs"), today=None):
+    """True if a real-market run already finished today (it has an audit)."""
+    today = today or datetime.now().strftime("%Y%m%d")
+    if not runs_dir.is_dir():
+        return False
+    for d in runs_dir.glob(f"{today}-*"):
+        meta = d / "meta.json"
+        if (d / "audit.json").exists() and meta.exists() and '"alpaca"' in meta.read_text(encoding="utf-8"):
+            return True
+    return False
+
+
+def _pid_alive(pid):
+    try:
+        import ctypes
+        handle = ctypes.windll.kernel32.OpenProcess(0x1000, False, pid)  # PROCESS_QUERY_LIMITED_INFORMATION
+        if not handle:
+            return False
+        code = ctypes.c_ulong()
+        ctypes.windll.kernel32.GetExitCodeProcess(handle, ctypes.byref(code))
+        ctypes.windll.kernel32.CloseHandle(handle)
+        return code.value == 259  # STILL_ACTIVE
+    except (AttributeError, OSError):  # not Windows
+        try:
+            os.kill(pid, 0)
+            return True
+        except OSError:
+            return False
+
+
+def take_lock(path=LOCK_PATH):
+    """One market day at a time: False if another live copy holds the lock."""
+    if path.exists():
+        try:
+            if _pid_alive(int(path.read_text().strip())):
+                return False
+        except ValueError:
+            pass  # unreadable lock: a leftover from a crash
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(str(os.getpid()))
+    return True
+
+
 def main(argv=None):
     p = argparse.ArgumentParser(description="Run the city for one real market session (paper only).")
     p.add_argument("--interval", type=int, default=300, help="seconds between cycles (default 300 = 5 min)")
@@ -97,6 +144,21 @@ def main(argv=None):
             print(f"Claude: unavailable, News stays neutral and no briefing ({e})")
         return 0
 
+    # Started again after a restart or at login: never trade the same day twice,
+    # and never run two copies at once.
+    if traded_today():
+        print("Today's market session is already done. Nothing to do.")
+        return 0
+    if not take_lock():
+        print("Another copy of the market day is already running. Nothing to do.")
+        return 0
+    try:
+        return _session(args, symbols, clock)
+    finally:
+        LOCK_PATH.unlink(missing_ok=True)
+
+
+def _session(args, symbols, clock):
     plan = plan_session(clock, args.interval, args.max_wait_hours)
     if plan is None:
         print("No market session within the wait window (weekend or holiday). Nothing to do.")
