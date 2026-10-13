@@ -1,6 +1,6 @@
 # Zombiso AI City
 
-A city of AI agents that paper-trades US stocks and that you can watch in 2D or 3D. The watchlist (AAPL, MSFT, NVDA by default) is `WATCHLIST` in `config/settings.py`.
+A city of AI agents that paper-trades US stocks and that you can watch as a 3D cyber city. The watchlist (AAPL, MSFT, NVDA by default) is `WATCHLIST` in `config/settings.py`.
 
 **Paper only.** No real money is ever used: the city refuses to run unless `TRADING_MODE=paper`, and it has no code that sends orders to a broker. Every trade lives in its own practice ledger.
 
