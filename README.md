@@ -59,3 +59,20 @@ The city runs on real market days with pretend money and is judged by rules fixe
 
 - `ALPACA_API_KEY` / `ALPACA_SECRET_KEY`: from a free Alpaca **paper** account, for real prices and news
 - `ANTHROPIC_API_KEY`: optional, powers News sentiment and the Research briefing; without it they stay neutral
+
+## Shop sites: websites for shops that have none
+
+A separate side tool in `shopsites/`. It finds local businesses with no website, builds each one a preview site, and writes the sales message.
+
+```bash
+python shopsites/find_shops.py "Porto Alegre, Brazil"          # -> shopsites/out/leads.csv
+python shopsites/build_sites.py --me "Your name" --my-phone "+55 ..." --price "R$ 300" \
+       --base-url https://YOU.github.io/shops                  # -> shopsites/out/
+```
+
+1. `find_shops.py` asks OpenStreetMap (free, no key) for every named shop, café, salon, clinic, workshop and office in the city. It keeps the independent ones (no chains) that have a phone number and no website or Instagram/Facebook listed.
+2. `build_sites.py` makes a one-page, phone-friendly site for each: name, Call / WhatsApp / Directions buttons, opening hours, a map. A "preview" banner marks it as not live yet.
+3. Put `shopsites/out/sites/` online (GitHub Pages, or drag it into Netlify Drop) and pass that address as `--base-url` so each pitch links to that shop's own preview.
+4. Open `shopsites/out/index.html`: every shop with **Send pitch on WhatsApp** (opens WhatsApp with the message filled in), **Call**, and **Check: really no site?**. OpenStreetMap is incomplete, so check before you pitch.
+
+When a shop says yes, remove the preview banner from its `index.html`, buy their domain, and point it at the page.
