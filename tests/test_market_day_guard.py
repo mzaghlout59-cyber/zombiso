@@ -1,6 +1,7 @@
 """market_day must never trade the same day twice or run two copies at once."""
 import json
 import os
+import time
 
 import market_day
 
@@ -34,6 +35,19 @@ def test_lock_blocks_a_second_live_copy_but_not_a_stale_one(tmp_path):
     assert market_day.take_lock(lock) is True
     lock.write_text("garbage")
     assert market_day.take_lock(lock) is True
+
+
+def test_old_lock_is_stale_even_if_its_pid_is_alive(tmp_path):
+    lock = tmp_path / "market_day.lock"
+    lock.write_text(str(os.getpid()))                      # a live PID (reused by someone else)...
+    old = time.time() - 20 * 3600
+    os.utime(lock, (old, old))                             # ...but written 20 hours ago
+    assert market_day.take_lock(lock) is True
+
+
+def test_keep_awake_never_raises():
+    assert market_day.keep_awake() in (True, False)
+    market_day.keep_awake(False)
 
 
 def test_main_skips_when_the_day_is_already_done(monkeypatch, capsys):

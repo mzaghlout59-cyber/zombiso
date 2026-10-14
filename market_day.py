@@ -97,9 +97,23 @@ def _pid_alive(pid):
             return False
 
 
+def keep_awake(on=True):
+    """Ask Windows not to sleep while a session trades (like a video player does).
+    No-op elsewhere. The request ends when this process exits."""
+    try:
+        import ctypes
+        ES_CONTINUOUS, ES_SYSTEM_REQUIRED = 0x80000000, 0x00000001
+        flags = ES_CONTINUOUS | (ES_SYSTEM_REQUIRED if on else 0)
+        return bool(ctypes.windll.kernel32.SetThreadExecutionState(flags))
+    except (AttributeError, OSError):
+        return False
+
+
 def take_lock(path=LOCK_PATH):
     """One market day at a time: False if another live copy holds the lock."""
-    if path.exists():
+    # A session lasts under 8 hours, so an older lock is a leftover even if its PID
+    # has since been reused by some other program.
+    if path.exists() and time.time() - path.stat().st_mtime < 16 * 3600:
         try:
             if _pid_alive(int(path.read_text().strip())):
                 return False
@@ -154,9 +168,12 @@ def main(argv=None):
     if not take_lock():
         print("Another copy of the market day is already running. Nothing to do.")
         return 0
+    if keep_awake():
+        print("Keeping the PC awake until the session ends.")
     try:
         return _session(args, symbols, clock)
     finally:
+        keep_awake(False)
         LOCK_PATH.unlink(missing_ok=True)
 
 
