@@ -19,7 +19,7 @@ from core.clock import SimClock
 from core.events import EventLog
 from core.ledger import PaperLedger
 from core.raphael import Raphael
-from core.prices import SimulatedFeed
+from core.prices import FeedError, SimulatedFeed
 from core.logger import safe_console
 from core.report import headline as report_headline, write_report
 from core.ultron import Ultron
@@ -131,32 +131,44 @@ def run_city(feed, cycles=CYCLES, watchlist=None, raphael=None, window=WINDOW, t
 
     started = time.monotonic()
     for cycle in range(1, cycles + 1):
-        feed.advance()
-        raphael.clock.advance()
-        raphael.events.emit("tick", prices=_prices_now(feed, watchlist))
+        try:
+            feed.advance()
+        except FeedError as e:
+            # No new prices this time (e.g. the internet dropped): skip the cycle and try
+            # again at the next one. Open trades keep their stops; nothing new is bought.
+            print(f"[cycle {cycle}] no prices ({e}); skipping this cycle")
+            raphael.events.emit("feed_error", cycle=cycle, error=str(e))
+        else:
+            raphael.clock.advance()
+            raphael.events.emit("tick", prices=_prices_now(feed, watchlist))
 
-        # 1. Exits first, so realized losses count before new entries
-        for t in raphael.tick(feed):
-            closed += 1
-            print(f"[cycle {cycle}] CLOSED {t['symbol']} ({t['exit_reason']}) pnl={t['pnl']}")
+            # 1. Exits first, so realized losses count before new entries
+            for t in raphael.tick(feed):
+                closed += 1
+                print(f"[cycle {cycle}] CLOSED {t['symbol']} ({t['exit_reason']}) pnl={t['pnl']}")
 
-        # 2. Evaluate each symbol on its latest prices
-        for sym in watchlist:
-            history = feed.get_history(sym, window)
-            before = len(raphael.ledger.open_trades())
-            raphael.run_goal(f"Evaluate {sym}", {"symbol": sym, "prices": history})
-            if len(raphael.ledger.open_trades()) > before:
-                opened += 1
-                print(f"[cycle {cycle}] OPENED {sym}")
+            # 2. Evaluate each symbol on its latest prices
+            for sym in watchlist:
+                history = feed.get_history(sym, window)
+                before = len(raphael.ledger.open_trades())
+                raphael.run_goal(f"Evaluate {sym}", {"symbol": sym, "prices": history})
+                if len(raphael.ledger.open_trades()) > before:
+                    opened += 1
+                    print(f"[cycle {cycle}] OPENED {sym}")
 
-        # 3. Aegis's squad reports on the books
-        raphael.review()
+            # 3. Aegis's squad reports on the books
+            raphael.review()
 
         if tick_delay and cycle < cycles:
             # sleep to the next scheduled cycle, so slow cycles don't drift the schedule
             time.sleep(max(0.0, started + cycle * tick_delay - time.monotonic()))
 
     if close_at_end:
+        if tick_delay:  # a live session: fetch the freshest prices for the closing trades
+            try:
+                feed.advance()
+            except FeedError as e:
+                print(f"[close] no fresh prices ({e}); closing at the last known prices")
         for t in raphael.close_all(feed):
             closed += 1
             print(f"[close] CLOSED {t['symbol']} (end of day) pnl={t['pnl']}")

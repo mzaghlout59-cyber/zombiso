@@ -1,6 +1,11 @@
 import random
 
 
+class FeedError(RuntimeError):
+    """A feed couldn't fetch new prices this time (e.g. the internet dropped).
+    The city skips that cycle and keeps going on the last known prices."""
+
+
 class PriceFeed:
     """Interface for anything that can supply prices. Paper-only: read-only data."""
 

@@ -97,6 +97,19 @@ def _pid_alive(pid):
             return False
 
 
+def clock_with_retry(tries=10, wait_s=60, clock=None):
+    """Alpaca's market clock, retried through short network outages (about 10 minutes)."""
+    clock = clock or market_clock
+    for attempt in range(1, tries + 1):
+        try:
+            return clock()
+        except AlpacaError as e:
+            if attempt == tries:
+                raise
+            print(f"Market clock unavailable ({e}); retrying in {wait_s}s ({attempt}/{tries})")
+            time.sleep(wait_s)
+
+
 def keep_awake(on=True):
     """Ask Windows not to sleep while a session trades (like a video player does).
     No-op elsewhere. The request ends when this process exits."""
@@ -139,7 +152,7 @@ def main(argv=None):
     stamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     print(f"=== {settings.PROJECT_NAME} market day | {stamp} | mode: {settings.TRADING_MODE} ===")
     try:
-        clock = market_clock()
+        clock = clock_with_retry(tries=1 if args.check else 10)
     except AlpacaError as e:
         print(f"Cannot reach Alpaca: {e}")
         return 1
@@ -187,7 +200,7 @@ def _session(args, symbols, clock):
     if wait > 0:
         print(f"Waiting {wait / 60:.0f} minutes for the opening bell...")
         time.sleep(wait + 5)
-        clock = market_clock()
+        clock = clock_with_retry()
         plan = plan_session(clock, args.interval, 0)
         if plan is None:
             print("Market did not open as expected. Nothing to do.")

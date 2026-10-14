@@ -10,13 +10,13 @@ from datetime import datetime, timedelta, timezone
 import requests
 
 from config import settings
-from core.prices import PriceFeed
+from core.prices import FeedError, PriceFeed
 
 DATA_URL = "https://data.alpaca.markets/v2"
 CLOCK_URL = "https://paper-api.alpaca.markets/v2/clock"
 
 
-class AlpacaError(RuntimeError):
+class AlpacaError(FeedError):
     pass
 
 
@@ -29,7 +29,10 @@ def _headers():
 
 
 def _get(url, params=None, session=None):
-    r = (session or requests).get(url, headers=_headers(), params=params, timeout=15)
+    try:
+        r = (session or requests).get(url, headers=_headers(), params=params, timeout=15)
+    except requests.RequestException as e:  # no internet, DNS failure, timeout...
+        raise AlpacaError(f"network problem reaching Alpaca: {e.__class__.__name__}") from e
     if r.status_code != 200:
         raise AlpacaError(f"{url} -> HTTP {r.status_code}: {r.text[:200]}")
     return r.json()
