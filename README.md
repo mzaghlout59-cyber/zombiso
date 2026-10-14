@@ -76,3 +76,15 @@ python shopsites/build_sites.py --me "Your name" --my-phone "+55 ..." --price "R
 4. Open `shopsites/out/index.html`: every shop with **Send pitch on WhatsApp** (opens WhatsApp with the message filled in), **Call**, and **Check: really no site?**. OpenStreetMap is incomplete, so check before you pitch.
 
 When a shop says yes, remove the preview banner from its `index.html`, buy their domain, and point it at the page.
+
+## Clipper: long video -> short vertical clips
+
+`clipper/clip.py` turns a podcast, stream or talk into TikTok / Shorts / Reels clips: 1080x1920, with big word-by-word captions, plus a title, caption and hashtags for each.
+
+```bash
+pip install -r clipper/requirements.txt     # Whisper + yt-dlp; ffmpeg must be installed too (winget install ffmpeg)
+python clipper/clip.py podcast.mp4                       # 5 clips of 20-60 s
+python clipper/clip.py "https://youtu.be/..." --clips 8 --max 45 --fit blur
+```
+
+Whisper transcribes the video on your PC (or pass `--subs file.srt`), Claude picks the moments with the strongest hook and payoff (needs `ANTHROPIC_API_KEY` in `.env`), and ffmpeg cuts them. Output: `clipper/out/<video>/clips/*.mp4` and `clips.md`. Only clip videos you have the rights to: your own, or a creator's clipping program.

@@ -1,0 +1,2 @@
+faster-whisper  # local transcription (optional if you pass --subs)
+yt-dlp          # clip straight from a link (optional)
