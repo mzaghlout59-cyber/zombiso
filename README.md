@@ -1,6 +1,6 @@
 # Zombiso AI City
 
-A city of AI agents that paper-trades US stocks and that you can watch as a 2D map, a 3D cyber city, or a galaxy: Raphael as the Sun and every agent on a real planet, placed where it really is today (NASA JPL orbital elements). The watchlist (AAPL, MSFT, NVDA by default) is `WATCHLIST` in `config/settings.py`.
+A city of AI agents that paper-trades US stocks and that you can watch as a 2D map or a 3D cyber city. The watchlist (AAPL, MSFT, NVDA by default) is `WATCHLIST` in `config/settings.py`.
 
 **Paper only.** No real money is ever used: the city refuses to run unless `TRADING_MODE=paper`, and it has no code that sends orders to a broker. Every trade lives in its own practice ledger.
 

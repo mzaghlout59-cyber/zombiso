@@ -72,7 +72,7 @@
   let fx = freshFx();
   let stars = makeStars();
   const skyline = makeSkyline();  // distant towers behind the city, generated once
-  let view = "2d";  // "2d" map | "3d" city | "galaxy"
+  let view = "2d";  // "2d" map | "3d" city
 
   function freshFx() { return { particles: [], glows: {}, floats: [], banner: null, eyeTarget: null, pulse: 0 }; }
 
@@ -971,9 +971,9 @@
     get state() { return state; }, get fx() { return fx; }, get meta() { return meta; },
     get audit() { return audit; }, get done() { return !!audit && P >= groups.length; },
   };
-  // Three views: the 2D map (drawn here), the 3D city and the galaxy (each its own module,
-  // pulling three.js from the CDN on first use). Only one WebGL scene exists at a time.
-  const VIEW_MODULES = { "3d": "./city3d.js", galaxy: "./galaxy3d.js" };
+  // Two views: the 2D map (drawn here) and the 3D city (its own module, pulling three.js
+  // from the CDN on first use).
+  const VIEW_MODULES = { "3d": "./city3d.js" };
   const modules = {};
   let renderer3d = null, renderer3dKey = null;
   async function setView(mode) {
@@ -999,7 +999,7 @@
   }
 
   // A scene is built once the run's data is in, and rebuilt when the view or the run changes
-  // (a new run can have a different watchlist, so different exchanges or stock planets).
+  // (a new run can have a different watchlist, so different exchanges).
   function current3d() {
     if (view === "2d" || !modules[view] || !meta) return null;
     const key = `${view}|${runId}`;
