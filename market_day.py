@@ -3,6 +3,7 @@
     python market_day.py                 # wait for today's open, trade until the close
     python market_day.py --interval 60   # one cycle per minute instead of every 5
     python market_day.py --check         # just test the Alpaca keys and show the market clock
+    python market_day.py --service       # run forever: every market day, PC kept awake in between
 
 Started each weekday by Windows Task Scheduler. Alpaca's market clock decides
 everything time-related (New York hours, daylight saving, holidays): if the
@@ -145,9 +146,17 @@ def main(argv=None):
     p.add_argument("--symbols", default=",".join(settings.WATCHLIST),
                    help="comma-separated watchlist (default: WATCHLIST in config/settings.py)")
     p.add_argument("--check", action="store_true", help="test the keys and print the market clock, then exit")
+    p.add_argument("--service", action="store_true",
+                   help="run forever: trade every market day and keep the PC awake in between")
+    p.add_argument("--log", help="append all output to this file (for running with no window, via pythonw)")
     args = p.parse_args(argv)
     symbols = [s.strip().upper() for s in args.symbols.split(",") if s.strip()]
-    safe_console()
+    if args.log:
+        # pythonw has no console; write everything (tracebacks included) to the log instead.
+        Path(args.log).parent.mkdir(parents=True, exist_ok=True)
+        sys.stdout = sys.stderr = open(args.log, "a", encoding="utf-8", errors="replace", buffering=1)
+    else:
+        safe_console()
 
     stamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     print(f"=== {settings.PROJECT_NAME} market day | {stamp} | mode: {settings.TRADING_MODE} ===")
@@ -173,6 +182,9 @@ def main(argv=None):
             print(f"Claude: unavailable, News stays neutral and no briefing ({e})")
         return 0
 
+    if args.service:
+        return run_service(args, symbols)
+
     # Started again after a restart or at login: never trade the same day twice,
     # and never run two copies at once.
     if traded_today():
@@ -185,6 +197,52 @@ def main(argv=None):
         print("Keeping the PC awake until the session ends.")
     try:
         return _session(args, symbols, clock)
+    finally:
+        keep_awake(False)
+        LOCK_PATH.unlink(missing_ok=True)
+
+
+SESSION_LEAD_HOURS = 1.0  # the service starts a day's session this long before the open
+
+
+def next_nap(clock, lead_hours=SESSION_LEAD_HOURS, max_nap_s=30 * 60):
+    """Seconds the service should wait before checking again: until shortly before the next
+    session, in steps of at most 30 minutes (so a changed clock or holiday is noticed)."""
+    until = (clock["next_open"] - clock["now"]).total_seconds() - lead_hours * 3600
+    return max(60.0, min(float(max_nap_s), until))
+
+
+def run_service(args, symbols):
+    """Run forever: trade every market day, and keep the PC awake in between so it never
+    sleeps through an opening bell (the user chose this over enabling wake timers)."""
+    while not take_lock():  # a one-off market day may still be finishing
+        print("Waiting for the running market day to finish...")
+        time.sleep(300)
+    keep_awake()
+    print("Service mode: trading every market day and keeping the PC awake in between.")
+    try:
+        while True:
+            try:
+                clock = clock_with_retry(tries=60, wait_s=60)  # rides out outages up to an hour
+            except AlpacaError as e:
+                print(f"Still no connection to Alpaca ({e}); trying again in 5 minutes")
+                time.sleep(300)
+                continue
+            if not traded_today() and plan_session(clock, args.interval, SESSION_LEAD_HOURS):
+                stamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                print(f"=== {settings.PROJECT_NAME} market day | {stamp} | mode: {settings.TRADING_MODE} ===")
+                try:
+                    _session(args, symbols, clock)
+                except Exception:  # never let one bad day stop the service
+                    import traceback
+                    traceback.print_exc()
+                    time.sleep(300)
+                continue
+            nap = next_nap(clock)
+            print(f"[service {datetime.now():%Y-%m-%d %H:%M}] next open {clock['next_open']}; "
+                  f"checking again in {nap / 60:.0f} min")
+            time.sleep(nap)
+            keep_awake()  # renew the request, just in case
     finally:
         keep_awake(False)
         LOCK_PATH.unlink(missing_ok=True)

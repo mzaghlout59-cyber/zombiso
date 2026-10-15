@@ -45,6 +45,20 @@ def test_old_lock_is_stale_even_if_its_pid_is_alive(tmp_path):
     assert market_day.take_lock(lock) is True
 
 
+def test_service_naps_until_shortly_before_the_next_open():
+    from datetime import datetime, timedelta, timezone
+    ny = timezone(timedelta(hours=-4))
+    now = datetime(2026, 10, 15, 16, 30, tzinfo=ny)
+    tomorrow = {"now": now, "next_open": datetime(2026, 10, 16, 9, 30, tzinfo=ny)}
+    assert market_day.next_nap(tomorrow) == 30 * 60          # far away: check every 30 min
+    soon = {"now": datetime(2026, 10, 16, 8, 0, tzinfo=ny), "next_open": tomorrow["next_open"]}
+    assert market_day.next_nap(soon) == 30 * 60              # 1.5 h away: 30 min, then 1 h before
+    close = {"now": datetime(2026, 10, 16, 8, 20, tzinfo=ny), "next_open": tomorrow["next_open"]}
+    assert market_day.next_nap(close) == 10 * 60             # wakes exactly 1 h before the open
+    late = {"now": datetime(2026, 10, 16, 8, 45, tzinfo=ny), "next_open": tomorrow["next_open"]}
+    assert market_day.next_nap(late) == 60                   # never a busy loop
+
+
 def test_keep_awake_never_raises():
     assert market_day.keep_awake() in (True, False)
     market_day.keep_awake(False)
