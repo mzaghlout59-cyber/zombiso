@@ -7,7 +7,8 @@ import core.logger
 import run_city
 from config import settings
 
-BASELINE = {"MAX_RISK_PER_TRADE_PCT": 0.25, "MAX_DAILY_LOSS_PCT": 1.0, "DAILY_PROFIT_TARGET": 1000.0}
+BASELINE = {"MAX_RISK_PER_TRADE_PCT": 0.25, "MAX_DAILY_LOSS_PCT": 1.0, "DAILY_PROFIT_TARGET": 1000.0,
+            "MAX_OPEN_POSITIONS": 3}
 
 
 @pytest.fixture(scope="session", autouse=True)

@@ -26,6 +26,16 @@ def test_configured_values():
     assert real["MAX_RISK_PER_TRADE_PCT"] == 1.0 and real["MAX_DAILY_LOSS_PCT"] == 1.0
     assert real["DAILY_PROFIT_TARGET"] == 1000.0
     assert len(real["WATCHLIST"]) == 10 and len(set(real["WATCHLIST"])) == 10
+    assert real["MAX_OPEN_POSITIONS"] == 4  # confirmed 2026-10-16: 4 at once, worst day ~ -$400
+
+
+def test_four_open_at_once(monkeypatch):
+    monkeypatch.setattr(settings, "MAX_OPEN_POSITIONS", 4)
+    a = AegisAgent()
+    a.open_positions = 3
+    assert a.evaluate("X", {"entry": 100, "stop_loss": 99, "size": 5})["approved"] is True
+    a.open_positions = 4
+    assert "max open positions" in a.evaluate("X", {"entry": 100, "stop_loss": 99, "size": 5})["reason"]
 
 
 def test_trades_risk_about_a_hundred_dollars(live_limits):

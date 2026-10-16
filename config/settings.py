@@ -29,7 +29,7 @@ MAX_RISK_PER_TRADE_PCT = 1.0      # % of account risked per trade (~$100 on $10k
 MAX_DAILY_LOSS_PCT = 1.0          # % of account (~$100), then Aegis halts trading for the day
 DAILY_PROFIT_TARGET = 1000.0      # USD realized today; once reached, no new trades until tomorrow
 # Never spend more than the capital the Treasury allots: open positions' cost can't exceed it.
-MAX_OPEN_POSITIONS = 3
+MAX_OPEN_POSITIONS = 4            # trades open at the same moment (no limit on trades per day); was 3
 MAX_LOSS_STREAK = 4               # this many losses in a row in one day halts new trades until tomorrow
 REQUIRE_STOP_LOSS = True
 
