@@ -123,7 +123,8 @@ class Raphael:
 
         # 2. Raphael executes the plan, on the capital the Treasury allots
         capital = self.treasury.capital_for(self.DIVISION)
-        task = {**task, "capital": capital}
+        exposure = sum(t["entry"] * t["size"] for t in self.ledger.open_trades())
+        task = {**task, "capital": capital, "cash": capital - exposure}
         results = {}
         for step in steps:
             results[step] = self.dispatch(self.ALIASES.get(step, step), task)
@@ -137,6 +138,7 @@ class Raphael:
         risk_task = {**task, "recommendation": recommendation, "trade": trade}
         aegis = self.agents[self.RISK_AGENT]
         aegis.account = capital
+        aegis.open_exposure = exposure
         aegis.open_positions = self.ledger.open_positions()
         aegis.daily_pnl = self.ledger.daily_pnl()
         aegis.open_symbols = self.ledger.open_symbols()

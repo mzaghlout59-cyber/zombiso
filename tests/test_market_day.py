@@ -105,11 +105,12 @@ def test_plan_session_waits_for_open_and_counts_cycles():
 def test_end_of_day_closes_everything_and_audit_stays_clean(tmp_path):
     ledger = PaperLedger(tmp_path / "ledger.json")
     raphael = build_city(ledger=ledger)
-    run_city(SimulatedFeed(START_PRICES, seed=1), cycles=60, raphael=raphael, close_at_end=True)
+    three = {"AAPL": 100.0, "MSFT": 100.0, "NVDA": 100.0}  # fixed market, whatever WATCHLIST says
+    run_city(SimulatedFeed(three, seed=1), cycles=60, watchlist=list(three), raphael=raphael, close_at_end=True)
     assert ledger.open_trades() == []
     eod = [e for e in raphael.events.of_kind("trade_closed") if e["reason"] == "end_of_day"]
     assert raphael.audit["ok"], raphael.audit["violations"]
-    assert eod and all(e["tick"] == 60 for e in eod)  # seed 1 ends with positions still open
+    assert eod and all(e["tick"] == 60 for e in eod)  # this market ends with positions still open
 
 
 def test_one_market_day_with_fake_alpaca(tmp_path):

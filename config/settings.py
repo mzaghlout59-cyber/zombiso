@@ -19,14 +19,16 @@ ALPACA_SECRET_KEY = os.getenv("ALPACA_SECRET_KEY", "")
 # Stock symbols the city evaluates every cycle. Add any US stock Alpaca has data for,
 # e.g. "AMZN", "GOOGL", "META", "TSLA", "AMD", "SPY". Aegis still allows only
 # MAX_OPEN_POSITIONS trades at once, however long this list is.
-WATCHLIST = ["AAPL", "MSFT", "NVDA"]
+WATCHLIST = ["AAPL", "MSFT", "NVDA", "AMZN", "GOOGL", "META", "TSLA", "AMD", "NFLX", "SPY"]
 
 # --- Aegis risk limits (paper trading) ---
 ACCOUNT_SIZE = 10_000.0           # starting paper equity in USD; the Treasury tracks it from here
 # Share of equity each trading division may size its trades on (must add up to <= 1.0)
 TREASURY_ALLOCATIONS = {"Investment": 1.0}
-MAX_RISK_PER_TRADE_PCT = 0.25     # % of account risked per trade
-MAX_DAILY_LOSS_PCT = 1.0          # % of account, then Aegis halts trading for the day
+MAX_RISK_PER_TRADE_PCT = 1.0      # % of account risked per trade (~$100 on $10k); was 0.25 until 2026-10-15
+MAX_DAILY_LOSS_PCT = 1.0          # % of account (~$100), then Aegis halts trading for the day
+DAILY_PROFIT_TARGET = 1000.0      # USD realized today; once reached, no new trades until tomorrow
+# Never spend more than the capital the Treasury allots: open positions' cost can't exceed it.
 MAX_OPEN_POSITIONS = 3
 MAX_LOSS_STREAK = 4               # this many losses in a row in one day halts new trades until tomorrow
 REQUIRE_STOP_LOSS = True

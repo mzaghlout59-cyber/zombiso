@@ -102,6 +102,13 @@ class Ultron(BaseAgent):
                 if day_pnl[e["day"]] <= -max_daily_loss(capital_now()):
                     flag(violations, e, f"trade #{e['trade_id']} {sym} opened after the daily loss "
                                         f"limit was hit (day {e['day']} pnl {day_pnl[e['day']]:.2f})")
+                if day_pnl[e["day"]] >= settings.DAILY_PROFIT_TARGET:
+                    flag(violations, e, f"trade #{e['trade_id']} {sym} opened after the daily profit target "
+                                        f"was reached (day {e['day']} pnl {day_pnl[e['day']]:.2f})")
+                exposure = sum(t["entry"] * t["size"] for t in open_trades.values())
+                if exposure + entry * e["size"] > capital_now() + 0.01:
+                    flag(violations, e, f"trade #{e['trade_id']} {sym} spends more than the capital "
+                                        f"(${exposure + entry * e['size']:,.2f} > ${capital_now():,.2f})")
                 if day_max_streak[e["day"]] >= settings.MAX_LOSS_STREAK:
                     flag(violations, e, f"trade #{e['trade_id']} {sym} opened after a losing streak of "
                                         f"{day_max_streak[e['day']]} on day {e['day']}")

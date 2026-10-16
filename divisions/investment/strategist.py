@@ -47,8 +47,10 @@ class StrategistAgent(BaseAgent):
         capital = task.get("capital", settings.ACCOUNT_SIZE)  # allotted by the Treasury
         max_risk_usd = capital * settings.MAX_RISK_PER_TRADE_PCT / 100
         size = int(max_risk_usd // (risk_per_share * settings.STOP_GAP_BUFFER))
+        if "cash" in task:  # never more shares than the free cash can pay for
+            size = min(size, int(max(0.0, task["cash"]) // entry))
         if size < 1:
-            return self._hold(symbol, "risk budget too small for even 1 share")
+            return self._hold(symbol, "risk budget or free cash too small for even 1 share")
 
         trade = {"side": "buy", "entry": entry, "stop_loss": stop_loss, "size": size}
         self.say(f"PROPOSAL {symbol}: {trade}")

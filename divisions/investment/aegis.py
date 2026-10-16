@@ -22,6 +22,7 @@ class AegisAgent(BaseAgent):
         self.daily_pnl = 0.0  # realized P&L today, in USD (negative = loss)
         self.open_symbols = set()  # symbols already held
         self.loss_streak = 0       # longest run of losing closes today
+        self.open_exposure = 0.0   # money already in open positions (entry x size)
 
     def handle(self, task):
         symbol = task.get("symbol")
@@ -47,6 +48,11 @@ class AegisAgent(BaseAgent):
         # Rule 1b: cool-off. Too many losses in a row today halts new trades until tomorrow.
         if self.loss_streak >= settings.MAX_LOSS_STREAK:
             return self._deny(symbol, f"losing streak ({self.loss_streak} in a row today), "
+                                      f"no new trades until tomorrow")
+
+        # Rule 1c: good day. Once today's profit reaches the target, stop and keep it.
+        if self.daily_pnl >= settings.DAILY_PROFIT_TARGET:
+            return self._deny(symbol, f"daily profit target reached (+${self.daily_pnl:.2f}), "
                                       f"no new trades until tomorrow")
 
         # Rule 2: position cap
@@ -76,6 +82,12 @@ class AegisAgent(BaseAgent):
         max_risk_usd = account * settings.MAX_RISK_PER_TRADE_PCT / 100
         if risk_usd > max_risk_usd:
             return self._deny(symbol, f"worst-case risk ${risk_usd:.2f} exceeds max ${max_risk_usd:.2f} per trade")
+
+        # Rule 5: no borrowing. All open positions together can't cost more than the capital.
+        cost = entry * size
+        if self.open_exposure + cost > account + 1e-9:
+            return self._deny(symbol, f"not enough cash: ${cost:,.2f} needed, "
+                                      f"${account - self.open_exposure:,.2f} free")
 
         return {
             "symbol": symbol,
