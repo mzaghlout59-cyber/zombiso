@@ -67,6 +67,21 @@ def fetch_news(symbols, hours=24, limit=10, session=None):
              "created_at": n.get("created_at", "")} for n in (d.get("news") or [])]
 
 
+def fetch_minute_bars(symbol, start, end, session=None):
+    """1-minute bars between two datetimes, oldest first: [{"t","o","h","l","c","v"}]."""
+    out, token = [], None
+    while True:
+        params = {"timeframe": "1Min", "start": start.isoformat(), "end": end.isoformat(),
+                  "limit": 10000, "feed": "iex", "sort": "asc"}
+        if token:
+            params["page_token"] = token
+        d = _get(f"{DATA_URL}/stocks/{symbol}/bars", params, session=session)
+        out += d.get("bars") or []
+        token = d.get("next_page_token")
+        if not token:
+            return out
+
+
 def fetch_daily_bars(symbols, days=5, session=None):
     """Last few daily bars per symbol, oldest first: {sym: [{"t","o","h","l","c","v"}]}."""
     start = (datetime.now(timezone.utc) - timedelta(days=days * 2 + 4)).isoformat()

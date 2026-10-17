@@ -75,7 +75,9 @@ def test_events_are_stamped_and_written(tmp_path):
     lines = [json.loads(l) for l in (tmp_path / "events.jsonl").read_text().splitlines()]
     assert lines == log.events
     assert [e["seq"] for e in lines] == [1, 2]
+    at = lines[0].pop("at")
     assert lines[0] == {"seq": 1, "tick": 1, "day": 0, "kind": "tick", "prices": {"AAPL": 100.0}}
+    assert at.endswith("+00:00") and at[:4].isdigit()  # real UTC time, e.g. 2026-10-16T13:30:23+00:00
     assert len(log.of_kind("decision")) == 1
 
 

@@ -1,9 +1,11 @@
 """Structured event stream: what happened, when, in city time.
 
-Every event is a flat dict: {"seq", "tick", "day", "kind", ...data}.
+Every event is a flat dict: {"seq", "tick", "day", "at", "kind", ...data}, where "at" is the
+real UTC time it happened (Hindsight lines trades up with the market's minute prices by it).
 The visual city and Ultron both read this stream; neither needs the printed log.
 """
 import json
+from datetime import datetime, timezone
 from pathlib import Path
 
 
@@ -21,6 +23,7 @@ class EventLog:
             "seq": len(self.events) + 1,
             "tick": self.clock.tick if self.clock else None,
             "day": self.clock.day if self.clock else None,
+            "at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
             "kind": kind,
             **data,
         }

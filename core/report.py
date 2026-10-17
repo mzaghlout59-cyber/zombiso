@@ -165,6 +165,10 @@ def to_markdown(s, date=None):
     if a is not None:
         out += ["## Ultron's check", "Clean: no rule was broken." if a["ok"] else "Problems found:"]
         out += [f"- {v['message']}" for v in a["violations"]] + [""]
+    h = s.get("hindsight")
+    if h:
+        out += ["## Hindsight's review", *[f"- {n}" for n in h["today"]], "",
+                "**Advice so far:**", *[f"- {n}" for n in h.get("advice", [])], ""]
     return "\n".join(out)
 
 
@@ -210,6 +214,12 @@ def to_html(s, date=None):
         verdict = ("<p class='pos'><b>Clean:</b> no rule was broken.</p>" if a["ok"] else
                    "<ul>" + "".join(f"<li class='neg'>{esc(v['message'])}</li>" for v in a["violations"]) + "</ul>")
         body.append(f"<section><h2>Ultron's check</h2>{verdict}</section>")
+    h = s.get("hindsight")
+    if h:
+        body.append("<section><h2>Hindsight's review</h2><ul>"
+                    + "".join(f"<li>{esc(n)}</li>" for n in h["today"])
+                    + "</ul><p><b>Advice so far:</b></p><ul>"
+                    + "".join(f"<li>{esc(n)}</li>" for n in h.get("advice", [])) + "</ul></section>")
     return f"""<!doctype html><html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Raphael's report {esc(date)}</title><style>
@@ -230,9 +240,11 @@ th {{ color:var(--muted); font-weight:600; }} .pos {{ color:var(--green); }} .ne
 </style></head><body><main>{''.join(body)}</main></body></html>"""
 
 
-def write_report(run_dir, events, meta=None, audit=None):
-    """Write report.html and report.md into the run folder. Returns the summary."""
+def write_report(run_dir, events, meta=None, audit=None, hindsight=None):
+    """Write report.html and report.md into the run folder. Returns the summary.
+    hindsight: the day's Hindsight review, added as its own section when given."""
     s = summarize(events, meta, audit)
+    s["hindsight"] = hindsight
     (run_dir / "report.html").write_text(to_html(s), encoding="utf-8")
     (run_dir / "report.md").write_text(to_markdown(s), encoding="utf-8")
     return s

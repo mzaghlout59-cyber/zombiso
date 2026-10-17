@@ -119,6 +119,7 @@ def run_city(feed, cycles=CYCLES, watchlist=None, raphael=None, window=WINDOW, t
         "max_risk_per_trade": settings.ACCOUNT_SIZE * settings.MAX_RISK_PER_TRADE_PCT / 100,
         "take_profit_rr": settings.TAKE_PROFIT_RR,
         "start_equity": raphael.treasury.equity,
+        "interval_s": tick_delay,
     }
     _write_run_file(raphael, "meta.json", meta)
     raphael.events.emit("treasury", equity=raphael.treasury.equity,

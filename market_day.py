@@ -14,6 +14,7 @@ close, so nothing is carried overnight. Trades are recorded only in the city's
 own PaperLedger; no order is ever sent to Alpaca or anywhere else.
 """
 import argparse
+import json
 import os
 import sys
 import time
@@ -28,6 +29,8 @@ from core.llm import LLMUnavailable, check_ready
 from core.logger import safe_console
 from core.treasury import Treasury
 from divisions.research.bureau import ResearchBureau
+from divisions.review.hindsight import Hindsight
+from core.report import write_report
 from run_city import WINDOW, build_city, new_run_dir, run_city
 
 CLOSE_BUFFER_S = 60  # stop this long before the closing bell
@@ -202,6 +205,24 @@ def main(argv=None):
         LOCK_PATH.unlink(missing_ok=True)
 
 
+def review_with_hindsight(run_dir, raphael=None, hindsight=None):
+    """After the close: Hindsight reviews the day's trades and its section joins Raphael's report.
+    Advisory only, and never allowed to break the end of a market day."""
+    try:
+        hindsight = hindsight or Hindsight()
+        review = hindsight.review_day(run_dir)
+        (run_dir / "hindsight.md").write_text(Hindsight.to_markdown(review), encoding="utf-8")
+        if raphael is not None:
+            meta = json.loads((run_dir / "meta.json").read_text(encoding="utf-8"))
+            write_report(run_dir, raphael.events.events, meta, raphael.audit, hindsight=review)
+        for line in review["today"] + review["advice"]:
+            print(f"Hindsight: {line}")
+        return review
+    except Exception as e:  # e.g. no internet for the minute prices
+        print(f"Hindsight: could not review today ({e.__class__.__name__}: {e})")
+        return None
+
+
 SESSION_LEAD_HOURS = 1.0  # the service starts a day's session this long before the open
 
 
@@ -283,6 +304,7 @@ def _session(args, symbols, clock):
     day = treasury.settle(run_dir.name)
     print(f"Treasury: day P&L ${day['pnl']:+,.2f}, equity now ${day['end_equity']:,.2f}")
     print(f"Session saved to {run_dir}")
+    review_with_hindsight(run_dir, raphael)
     result = trial.update()
     if result:
         s, v = result
