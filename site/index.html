@@ -233,6 +233,66 @@ footer { padding-block: 36px; font-size: 14px; color: var(--muted); }
 footer .wrap { display: flex; flex-wrap: wrap; gap: 12px 28px; justify-content: space-between; align-items: center; }
 footer .mark { font-size: 20px; }
 
+/* ---------- motion ---------- */
+/* Opening: the awning unrolls, the headline rises in, the phone slides into the window, the sign drops. */
+.awning { transform-origin: top; animation: unroll .9s cubic-bezier(.2, .9, .3, 1.15) both; }
+@keyframes unroll { from { transform: scaleY(0); } }
+.rise { display: inline-block; animation: rise .8s cubic-bezier(.2, .8, .2, 1) both; animation-delay: calc(.35s + var(--i, 0) * .09s); }
+@keyframes rise { from { opacity: 0; transform: translateY(.45em) rotate(2deg); filter: blur(6px); } }
+.hero .lede, .hero .cta-row, .hero .reassure, .hero .eyebrow { animation: rise .8s cubic-bezier(.2, .8, .2, 1) both; }
+.hero .eyebrow { animation-delay: .25s; } .hero .lede { animation-delay: .85s; }
+.hero .cta-row { animation-delay: 1s; } .hero .reassure { animation-delay: 1.1s; }
+.phone { animation: slide-in 1.1s cubic-bezier(.2, .8, .2, 1) .5s both; }
+@keyframes slide-in { from { opacity: 0; transform: translateY(60px) rotate(4deg); } }
+.sign { animation: drop .9s cubic-bezier(.3, 1.6, .5, 1) 1.3s both, swing 4s ease-in-out 2.2s infinite; }
+@keyframes drop { from { transform: translateY(-140px) rotate(-14deg); opacity: 0; } }
+.dots { animation: rise .6s ease 1.5s both; }
+
+/* Phone: page turns between shops, and a finger keeps tapping Call. */
+.screen .page { transition: opacity .55s ease, transform .55s cubic-bezier(.2, .8, .2, 1), filter .55s; }
+.screen .page.out { opacity: 0; transform: translateY(18px) scale(.97); filter: blur(4px); }
+.s-btns i:first-child { position: relative; }
+.s-btns i:first-child::after { content: ""; position: absolute; inset: -4px; border-radius: inherit; border: 2px solid #fff; animation: tap 2.2s ease-out 2.4s infinite; opacity: 0; }
+@keyframes tap { 0% { opacity: .9; transform: scale(.85); } 70%, 100% { opacity: 0; transform: scale(1.5); } }
+.s-card, .s-map { animation: rise .5s ease both; }
+.s-body > :nth-child(2) { animation-delay: .08s; } .s-body > :nth-child(3) { animation-delay: .16s; } .s-body > :nth-child(4) { animation-delay: .24s; }
+
+/* Search: the chosen result lights up each time a search finishes. */
+.result { transition: opacity .4s, filter .4s; }
+.result.win.flash { animation: chosen 1.2s ease; }
+@keyframes chosen { 30% { box-shadow: 0 0 0 8px color-mix(in srgb, var(--gold) 30%, transparent); transform: scale(1.02); } }
+.result.win .acts span { transition: transform .2s; }
+.result.win.flash .acts span { animation: pop .5s ease both; }
+.result.win.flash .acts span:nth-child(2) { animation-delay: .08s; } .result.win.flash .acts span:nth-child(3) { animation-delay: .16s; }
+@keyframes pop { 50% { transform: translateY(-4px); } }
+.result.lose.dim { filter: grayscale(1); opacity: .5; }
+
+/* Hover: gold buttons catch the light, cards tilt, price tags swing from their hole. */
+.btn-gold { position: relative; overflow: hidden; }
+.btn-gold::after { content: ""; position: absolute; inset: 0; background: linear-gradient(110deg, transparent 30%, rgba(255,255,255,.55) 50%, transparent 70%); transform: translateX(-120%); }
+.btn-gold:hover::after { transition: transform .7s ease; transform: translateX(120%); }
+.sample { transform: perspective(900px) rotateX(var(--rx, 0deg)) rotateY(var(--ry, 0deg)) translateY(var(--ty, 0)); transition: transform .25s ease, box-shadow .2s; }
+.sample:hover { --ty: -4px; transform: perspective(900px) rotateX(var(--rx, 0deg)) rotateY(var(--ry, 0deg)) translateY(-4px); }
+.price { transform-origin: 50% 20px; }
+.price:hover { animation: tag-swing 1.4s ease-out; }
+@keyframes tag-swing { 15% { transform: rotate(3deg); } 35% { transform: rotate(-2deg); } 55% { transform: rotate(1deg); } 75% { transform: rotate(-.4deg); } }
+
+/* Scroll: sections drift in from a visible resting state; the step line draws across. */
+@supports (animation-timeline: view()) {
+  .drift { animation: drift linear both; animation-timeline: view(); animation-range: entry 0% entry 70%; }
+  @keyframes drift { from { opacity: .3; transform: translateY(40px); } }
+  .steps { border-top-color: transparent; position: relative; }
+  .steps::before { content: ""; position: absolute; top: -2px; left: 0; height: 2px; width: 100%; background: var(--ink); transform-origin: left;
+    animation: draw linear both; animation-timeline: view(); animation-range: entry 10% cover 40%; }
+  @keyframes draw { from { transform: scaleX(0); } }
+}
+
+/* Order: the confirmation prints out like a receipt. */
+.done:not([hidden]) { animation: print 1s steps(14) both; }
+@keyframes print { from { clip-path: inset(0 0 100% 0); } to { clip-path: inset(0 0 0 0); } }
+.receipt.printing { animation: jolt .25s ease 3; }
+@keyframes jolt { 50% { transform: translateY(3px); } }
+
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; }
   html { scroll-behavior: auto; }
@@ -259,7 +319,7 @@ footer .mark { font-size: 20px; }
   <div class="wrap hero-grid">
     <div>
       <p class="eyebrow">Websites for local shops</p>
-      <h1>Your door is open. Is your <em>website?</em></h1>
+      <h1><span class="rise" style="--i:0">Your door</span> <span class="rise" style="--i:1">is open.</span> <span class="rise" style="--i:2">Is your</span> <em class="rise" style="--i:3">website?</em></h1>
       <p class="lede">Before people walk in, they look you up. We build your shop a fast, beautiful website that shows your hours, your phone and the way to your door. You see it finished before you pay anything.</p>
       <div class="cta-row">
         <a class="btn btn-gold" href="#order">See my website free</a>
@@ -284,17 +344,17 @@ footer .mark { font-size: 20px; }
       <h2>They search your name. Then they choose.</h2>
       <p class="lede">Someone hungry, or with a broken car, searches on their phone and goes where it's easy: the shop with its hours, a call button and a map. A shop with nothing to show gets skipped, even when it's the better one.</p>
     </div>
-    <div class="serp" aria-label="Example search results">
+    <div class="serp drift" aria-label="Example search results">
       <div class="q"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><span class="typed" id="typed">bakery open now near me</span></div>
-      <div class="result win">
+      <div class="result win" id="win">
         <span class="tag">Has a website</span>
-        <small>aurorabakery.com</small>
-        <b>Aurora Bakery: fresh bread from 6:30</b>
+        <small id="win-url">aurorabakery.com</small>
+        <b id="win-title">Aurora Bakery: fresh bread from 6:30</b>
         <div class="acts"><span>Call</span><span>WhatsApp</span><span>Directions</span></div>
       </div>
-      <div class="result lose">
+      <div class="result lose" id="lose">
         <span class="tag">No website</span>
-        <b>Corner Bakery</b>
+        <b id="lose-title">Corner Bakery</b>
         <p>No hours listed. No photos. No way to know if it's open.</p>
       </div>
     </div>
@@ -303,23 +363,23 @@ footer .mark { font-size: 20px; }
 
 <section class="band" id="work">
   <div class="wrap">
-    <div class="head">
+    <div class="head drift">
       <p class="eyebrow">Work</p>
       <h2>Made for the shop, not from a template</h2>
       <p class="lede">Every site gets the colors, words and details of its own trade. Tap one to see it on the phone above.</p>
     </div>
-    <div class="samples" id="samples"></div>
+    <div class="samples drift" id="samples"></div>
     <p class="note">Sample designs that show our style. Your site is built around your shop.</p>
   </div>
 </section>
 
 <section id="how">
   <div class="wrap">
-    <div class="head">
+    <div class="head drift">
       <p class="eyebrow">How it works</p>
       <h2>See it first. Pay only if you love it.</h2>
     </div>
-    <div class="steps">
+    <div class="steps drift">
       <div class="step"><h3>We build your preview</h3><p>Send us your shop's name. Within 48 hours you get a link to your finished website, free.</p></div>
       <div class="step"><h3>You tell us what to change</h3><p>Different photo, new price, other colors? Send it on WhatsApp and we update it. Changes are included.</p></div>
       <div class="step"><h3>It goes live</h3><p>Pay once and your site goes online at your own address, like <b>yourshop.com</b>, and shows up when people search.</p></div>
@@ -329,12 +389,12 @@ footer .mark { font-size: 20px; }
 
 <section class="band" id="pricing">
   <div class="wrap">
-    <div class="head">
+    <div class="head drift">
       <p class="eyebrow">Pricing</p>
       <h2>One price. No surprises.</h2>
       <p class="lede">Pay once for the website. Hosting and your address cost nothing extra for the first year.</p>
     </div>
-    <div class="prices">
+    <div class="prices drift">
       <div class="price">
         <h3>Starter</h3>
         <div class="amount">$290<small> once</small></div>
@@ -368,7 +428,7 @@ footer .mark { font-size: 20px; }
 </section>
 
 <section id="faq">
-  <div class="wrap faq">
+  <div class="wrap faq drift">
     <div>
       <p class="eyebrow">Questions</p>
       <h2>What shop owners ask us</h2>
@@ -391,7 +451,7 @@ footer .mark { font-size: 20px; }
       <h2>See your shop's website in 48 hours</h2>
       <p class="lede">Tell us your shop's name and where it is. We'll build your website and send you the link on WhatsApp. No payment, no card, no commitment.</p>
     </div>
-    <form class="receipt" id="form" novalidate>
+    <form class="receipt drift" id="form" novalidate>
       <h3>Preview order</h3>
       <div class="rule"></div>
       <div id="fields">
@@ -493,17 +553,40 @@ SAMPLES.forEach((s, i) => {
 show(0);
 autoplay();
 
+// Sample cards tilt toward the pointer.
+if (!reduced) document.querySelectorAll(".sample").forEach((card) => {
+  card.addEventListener("pointermove", (e) => {
+    const r = card.getBoundingClientRect();
+    card.style.setProperty("--ry", ((e.clientX - r.left) / r.width - .5) * 10 + "deg");
+    card.style.setProperty("--rx", -((e.clientY - r.top) / r.height - .5) * 8 + "deg");
+  });
+  card.addEventListener("pointerleave", () => { card.style.removeProperty("--rx"); card.style.removeProperty("--ry"); });
+});
+
 // The search box types a few real searches people make.
-const searches = ["bakery open now near me", "hair salon booking today", "mechanic near me open saturday"];
+const searches = [
+  { q: "bakery open now near me", url: "aurorabakery.com", title: "Aurora Bakery: fresh bread from 6:30", other: "Corner Bakery" },
+  { q: "hair salon booking today", url: "luahairstudio.com", title: "Lua Hair Studio: book on WhatsApp", other: "Salon Bella" },
+  { q: "mechanic near me open saturday", url: "pradoauto.com", title: "Prado Auto Repair: open Saturday 8–12", other: "Joe's Garage" },
+];
 const typed = document.getElementById("typed");
+const win = document.getElementById("win"), lose = document.getElementById("lose");
+function chooseResult(s) {
+  document.getElementById("win-url").textContent = s.url;
+  document.getElementById("win-title").textContent = s.title;
+  document.getElementById("lose-title").textContent = s.other;
+  win.classList.remove("flash"); void win.offsetWidth; win.classList.add("flash");
+  lose.classList.add("dim");
+}
 if (!reduced) {
-  let si = 0, ci = searches[0].length, deleting = true;
+  let si = 0, ci = searches[0].q.length, deleting = true;
+  setTimeout(() => chooseResult(searches[0]), 2000);
   setTimeout(function tick() {
-    const word = searches[si];
+    const word = searches[si].q;
     ci += deleting ? -1 : 1;
     typed.textContent = word.slice(0, ci);
-    if (deleting && ci === 0) { deleting = false; si = (si + 1) % searches.length; }
-    else if (!deleting && ci === searches[si].length) { deleting = true; return setTimeout(tick, 2600); }
+    if (deleting && ci === 0) { deleting = false; si = (si + 1) % searches.length; lose.classList.remove("dim"); }
+    else if (!deleting && ci === searches[si].q.length) { deleting = true; chooseResult(searches[si]); return setTimeout(tick, 3200); }
     setTimeout(tick, deleting ? 28 : 60);
   }, 3000);
 }
@@ -526,6 +609,7 @@ form.addEventListener("submit", (e) => {
   document.getElementById("done-text").textContent = `Your request for ${shop} is ready. Send it to us on WhatsApp and we'll start building.`;
   document.getElementById("fields").hidden = true;
   document.getElementById("done").hidden = false;
+  form.classList.remove("printing"); void form.offsetWidth; form.classList.add("printing");
 });
 document.getElementById("copy").addEventListener("click", (e) => {
   const btn = e.currentTarget;
