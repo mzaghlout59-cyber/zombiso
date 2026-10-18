@@ -1,0 +1,540 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Vitrine Studio</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<meta name="description" content="Websites for local shops. See your new website free before you pay anything.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,600;12..96,800&family=Instrument+Sans:wght@400;500;600&family=JetBrains+Mono:wght@500;700&display=swap">
+<style>
+/* Layout: a shopfront. Striped awning over the hero, painted-sign wordmark,
+   a live phone in the window, then price tags and a receipt for the deal. */
+:root {
+  --paper: #f6f8f4;        /* page */
+  --card: #ffffff;
+  --ink: #142019;          /* text */
+  --muted: #56645b;
+  --line: #dbe3dc;
+  --green: #12402f;        /* shopfront paint */
+  --green-2: #1b5a43;
+  --on-green: #f3f6f1;
+  --gold: #b8860b;         /* sign-writer's gold leaf */
+  --gold-hi: #e6b93f;
+  --stripe: #fbfcf8;
+  --shadow: 0 1px 2px rgba(18, 64, 47, .06), 0 12px 32px -12px rgba(18, 64, 47, .22);
+  --display: "Bricolage Grotesque", "Avenir Next", "Segoe UI", system-ui, sans-serif;
+  --body: "Instrument Sans", "Helvetica Neue", "Segoe UI", system-ui, sans-serif;
+  --mono: "JetBrains Mono", ui-monospace, "Cascadia Mono", Menlo, monospace;
+  --gutter-l: max(16px, env(safe-area-inset-left, 0px));
+  --gutter-r: max(16px, env(safe-area-inset-right, 0px));
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --paper: #0b1511; --card: #12201a; --ink: #e8efe9; --muted: #9fb0a5; --line: #23362c;
+    --green: #0f3326; --green-2: #1a4c3a; --on-green: #e8efe9; --gold: #e2b545; --gold-hi: #f3d27a;
+    --stripe: #d9e3dc; --shadow: 0 1px 2px rgba(0,0,0,.3), 0 16px 40px -16px rgba(0,0,0,.6);
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --paper: #0b1511; --card: #12201a; --ink: #e8efe9; --muted: #9fb0a5; --line: #23362c;
+  --green: #0f3326; --green-2: #1a4c3a; --on-green: #e8efe9; --gold: #e2b545; --gold-hi: #f3d27a;
+  --stripe: #d9e3dc; --shadow: 0 1px 2px rgba(0,0,0,.3), 0 16px 40px -16px rgba(0,0,0,.6);
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body { margin: 0; background: var(--paper); color: var(--ink); font: 17px/1.6 var(--body); -webkit-font-smoothing: antialiased; }
+body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 10; background: var(--green); }
+h1, h2, h3 { font-family: var(--display); line-height: 1.05; text-wrap: balance; margin: 0; letter-spacing: -.02em; }
+p { margin: 0; }
+a { color: inherit; }
+:focus-visible { outline: 3px solid var(--gold-hi); outline-offset: 3px; border-radius: 6px; }
+.wrap { max-width: 1160px; margin: 0 auto; padding-left: var(--gutter-l); padding-right: var(--gutter-r); }
+.eyebrow { font: 700 12px var(--mono); letter-spacing: .16em; text-transform: uppercase; color: var(--gold); }
+.lede { color: var(--muted); font-size: 19px; max-width: 58ch; }
+section { padding-block: clamp(64px, 9vw, 112px); }
+
+/* buttons */
+.btn { display: inline-flex; align-items: center; gap: 10px; font: 600 16px var(--body); text-decoration: none; padding: 14px 24px; border-radius: 999px; border: 2px solid transparent; cursor: pointer; transition: transform .15s, box-shadow .15s, background .15s; }
+.btn:hover { transform: translateY(-2px); }
+.btn-gold { background: var(--gold-hi); color: #1b1606; box-shadow: 0 8px 20px -8px rgba(184, 134, 11, .7); }
+.btn-ghost { border-color: currentColor; color: var(--on-green); }
+.btn-dark { background: var(--green); color: var(--on-green); }
+
+/* nav */
+nav { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 20; background: var(--green); color: var(--on-green); }
+nav .wrap { display: flex; align-items: center; gap: 24px; padding-block: 14px; }
+.mark { font: 800 26px var(--display); letter-spacing: -.01em; text-decoration: none; background: linear-gradient(180deg, var(--gold-hi), var(--gold) 70%); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.mark small { font: 500 11px var(--mono); letter-spacing: .2em; color: var(--on-green); opacity: .7; margin-left: 8px; -webkit-text-fill-color: var(--on-green); }
+nav ul { display: flex; gap: 22px; list-style: none; margin: 0 0 0 auto; padding: 0; }
+nav ul a { text-decoration: none; font-weight: 500; opacity: .85; }
+nav ul a:hover { opacity: 1; }
+nav .btn { padding: 9px 18px; font-size: 15px; }
+@media (max-width: 820px) { nav ul { display: none; } nav .btn { margin-left: auto; } }
+
+/* hero + awning */
+.hero { background: var(--green); color: var(--on-green); padding-block: 0 clamp(56px, 8vw, 96px); position: relative; overflow: hidden; }
+.awning { height: 64px; background: repeating-linear-gradient(90deg, var(--stripe) 0 44px, var(--green-2) 44px 88px); position: relative; }
+.awning::after { content: ""; position: absolute; left: 0; right: 0; bottom: -22px; height: 22px;
+  background: radial-gradient(circle at 22px 0, var(--stripe) 21px, transparent 22px) 0 0 / 88px 22px repeat-x,
+              radial-gradient(circle at 66px 0, var(--green-2) 21px, transparent 22px) 0 0 / 88px 22px repeat-x; }
+.hero-grid { display: grid; grid-template-columns: 1.15fr .85fr; gap: 48px; align-items: center; padding-top: 72px; }
+.hero-grid > * { min-width: 0; }
+.hero h1 { font-size: clamp(44px, 7.4vw, 92px); font-weight: 800; margin: 14px 0 22px; }
+.hero h1 em { font-style: normal; background: linear-gradient(180deg, var(--gold-hi), var(--gold) 80%); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.hero .lede { color: var(--on-green); opacity: .82; }
+.hero .eyebrow { color: var(--gold-hi); }
+.cta-row { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 32px; }
+.reassure { margin-top: 18px; font: 500 13px var(--mono); opacity: .7; }
+@media (max-width: 900px) { .hero-grid { grid-template-columns: 1fr; padding-top: 56px; } }
+
+/* the phone in the window */
+.window { position: relative; display: grid; justify-items: center; }
+.sign { position: absolute; top: -18px; right: 6%; z-index: 2; transform-origin: 50% -30px; animation: swing 4s ease-in-out infinite; }
+.sign::before, .sign::after { content: ""; position: absolute; top: -30px; width: 2px; height: 34px; background: var(--gold-hi); }
+.sign::before { left: 18px; transform: rotate(18deg); } .sign::after { right: 18px; transform: rotate(-18deg); }
+.sign span { display: block; background: #c62f2f; color: #fff; font: 800 15px var(--display); letter-spacing: .14em; padding: 8px 14px; border-radius: 6px; border: 2px solid #fff; box-shadow: 0 6px 16px rgba(0,0,0,.3); }
+@keyframes swing { 50% { transform: rotate(-5deg); } 0%, 100% { transform: rotate(4deg); } }
+.phone { width: min(300px, 100%); aspect-ratio: 9 / 19; max-width: 100%; background: #0d0f0e; border-radius: 42px; padding: 11px; box-shadow: 0 40px 80px -30px rgba(0,0,0,.6), inset 0 0 0 2px #2b302d; position: relative; }
+.phone::before { content: ""; position: absolute; top: 20px; left: 50%; width: 84px; height: 22px; background: #0d0f0e; border-radius: 99px; transform: translateX(-50%); z-index: 3; }
+.screen { width: 100%; height: 100%; border-radius: 32px; overflow: hidden; background: #fff; color: #1c1917; position: relative; font-family: var(--body); }
+.screen .page { position: absolute; inset: 0; transition: opacity .5s ease, transform .5s ease; }
+.screen .page.out { opacity: 0; transform: translateY(10px); }
+.s-top { background: var(--c); color: #fff; padding: 58px 18px 22px; text-align: center; }
+.s-top small { font: 600 9px var(--mono); letter-spacing: .18em; text-transform: uppercase; opacity: .85; }
+.s-top b { display: block; font: 800 25px/1.05 var(--display); margin: 6px 0; letter-spacing: -.02em; }
+.s-top p { font-size: 12px; opacity: .92; }
+.s-btns { display: flex; gap: 6px; justify-content: center; margin-top: 14px; flex-wrap: wrap; }
+.s-btns i { font-style: normal; font-size: 10px; font-weight: 700; padding: 6px 10px; border-radius: 99px; background: #fff; color: var(--c); }
+.s-btns i + i { background: transparent; color: #fff; box-shadow: inset 0 0 0 1.5px #fff; }
+.s-body { padding: 12px; display: grid; gap: 8px; }
+.s-card { background: #f5f5f4; border-radius: 10px; padding: 10px 12px; font-size: 10.5px; }
+.s-card h4 { margin: 0 0 4px; font: 700 11px var(--display); color: var(--c); }
+.s-row { display: flex; justify-content: space-between; border-bottom: 1px solid #e7e5e4; padding: 2px 0; font-variant-numeric: tabular-nums; }
+.s-row:last-child { border: 0; }
+.s-map { height: 96px; border-radius: 10px; position: relative; background:
+  linear-gradient(90deg, transparent 46%, #fff 46% 54%, transparent 54%),
+  linear-gradient(0deg, transparent 40%, #fff 40% 50%, transparent 50%),
+  linear-gradient(35deg, transparent 62%, #fff 62% 66%, transparent 66%), #e4e9e1; }
+.s-map::after { content: ""; position: absolute; left: 50%; top: 42%; width: 14px; height: 14px; background: var(--c); border: 3px solid #fff; border-radius: 50% 50% 50% 0; transform: translate(-50%, -100%) rotate(-45deg); box-shadow: 0 2px 6px rgba(0,0,0,.3); }
+.dots { display: flex; gap: 8px; justify-content: center; margin-top: 18px; }
+.dots button { width: 9px; height: 9px; padding: 0; border-radius: 99px; border: 0; background: var(--on-green); opacity: .35; cursor: pointer; transition: width .3s, opacity .3s; }
+.dots button[aria-current="true"] { width: 26px; opacity: 1; background: var(--gold-hi); }
+
+/* search: how customers find a shop */
+.search-grid { display: grid; grid-template-columns: .9fr 1.1fr; gap: 56px; align-items: center; }
+.search-grid > * { min-width: 0; }
+.search-grid h2 { font-size: clamp(34px, 4.6vw, 54px); margin: 12px 0 18px; }
+.serp { background: var(--card); border: 1px solid var(--line); border-radius: 20px; box-shadow: var(--shadow); padding: 20px; display: grid; gap: 14px; }
+.q { display: flex; align-items: center; gap: 10px; border: 1px solid var(--line); border-radius: 99px; padding: 10px 16px; font-size: 15px; }
+.q svg { flex: none; }
+.q .typed::after { content: "|"; color: var(--gold); animation: blink 1s steps(1) infinite; }
+@keyframes blink { 50% { opacity: 0; } }
+.result { display: grid; gap: 4px; padding: 14px; border-radius: 14px; border: 1px solid var(--line); }
+.result small { font: 500 12px var(--mono); color: var(--muted); }
+.result b { font: 600 19px var(--display); }
+.result.win { border-color: var(--gold); box-shadow: 0 0 0 3px color-mix(in srgb, var(--gold) 22%, transparent); }
+.result.win .acts { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 6px; }
+.result.win .acts span { font-size: 13px; font-weight: 600; padding: 5px 12px; border-radius: 99px; background: var(--green); color: var(--on-green); }
+.result.lose { opacity: .7; }
+.result.lose p { font-size: 14px; color: var(--muted); }
+.tag { justify-self: start; font: 700 10px var(--mono); letter-spacing: .12em; text-transform: uppercase; padding: 3px 8px; border-radius: 4px; background: var(--line); color: var(--muted); }
+.result.win .tag { background: var(--gold-hi); color: #1b1606; }
+@media (max-width: 900px) { .search-grid { grid-template-columns: 1fr; gap: 36px; } }
+
+/* samples */
+.band { background: var(--card); border-block: 1px solid var(--line); }
+.head { display: grid; gap: 14px; margin-bottom: 40px; }
+.head h2 { font-size: clamp(34px, 4.6vw, 54px); }
+.samples { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
+.sample { text-align: left; border: 1px solid var(--line); background: var(--paper); border-radius: 18px; overflow: hidden; cursor: pointer; padding: 0; color: inherit; font: inherit; transition: transform .2s, box-shadow .2s; }
+.sample:hover { transform: translateY(-4px); box-shadow: var(--shadow); }
+.sample .swatch { background: var(--c); color: #fff; padding: 30px 22px 26px; }
+.sample .swatch small { font: 600 10px var(--mono); letter-spacing: .18em; text-transform: uppercase; opacity: .85; }
+.sample .swatch b { display: block; font: 800 28px/1.05 var(--display); margin-top: 6px; }
+.sample .meta { padding: 16px 22px 20px; display: grid; gap: 4px; }
+.sample .meta span { color: var(--muted); font-size: 15px; }
+.sample .meta em { font-style: normal; font-weight: 600; color: var(--gold); font-size: 14px; }
+.note { margin-top: 18px; font: 500 13px var(--mono); color: var(--muted); }
+@media (max-width: 820px) { .samples { grid-template-columns: 1fr; } }
+
+/* steps (a real sequence) */
+.steps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0; counter-reset: step; border-top: 2px solid var(--ink); }
+.step { padding: 28px 28px 8px 0; display: grid; gap: 10px; align-content: start; }
+.step + .step { padding-left: 28px; border-left: 1px solid var(--line); }
+.step::before { counter-increment: step; content: "Step " counter(step); font: 700 12px var(--mono); letter-spacing: .14em; text-transform: uppercase; color: var(--gold); }
+.step h3 { font-size: 26px; }
+.step p { color: var(--muted); }
+@media (max-width: 820px) { .steps { grid-template-columns: 1fr; } .step + .step { padding-left: 0; border-left: 0; border-top: 1px solid var(--line); } }
+
+/* pricing: price tags */
+.prices { display: grid; grid-template-columns: repeat(3, 1fr); gap: 22px; align-items: start; }
+.price { position: relative; background: var(--card); border: 1px solid var(--line); border-radius: 6px 6px 18px 18px; padding: 40px 26px 28px; display: grid; gap: 16px; }
+.price::before { content: ""; position: absolute; top: 14px; left: 50%; width: 12px; height: 12px; border-radius: 50%; transform: translateX(-50%); background: var(--paper); box-shadow: inset 0 0 0 2px var(--line); }
+.price.pick { background: var(--green); color: var(--on-green); border-color: var(--green); box-shadow: var(--shadow); }
+.price.pick::before { background: var(--paper); box-shadow: none; }
+.price .ribbon { position: absolute; top: -13px; right: 20px; font: 700 11px var(--mono); letter-spacing: .12em; text-transform: uppercase; background: var(--gold-hi); color: #1b1606; padding: 5px 10px; border-radius: 4px; }
+.price h3 { font-size: 24px; }
+.amount { font: 700 46px/1 var(--mono); letter-spacing: -.03em; font-variant-numeric: tabular-nums; }
+.amount small { font-size: 15px; font-weight: 500; letter-spacing: 0; opacity: .7; }
+.price > p { color: var(--muted); font-size: 15px; }
+.price.pick > p { color: var(--on-green); opacity: .8; }
+.price ul { list-style: none; padding: 0; margin: 0; display: grid; gap: 9px; font-size: 15px; }
+.price li { display: grid; grid-template-columns: 18px 1fr; gap: 10px; }
+.price li::before { content: "✓"; font-weight: 700; color: var(--gold); }
+.price.pick li::before { color: var(--gold-hi); }
+.price .btn { justify-content: center; }
+.price .btn-line { border-color: var(--line); color: var(--ink); }
+@media (max-width: 900px) { .prices { grid-template-columns: 1fr; max-width: 480px; } }
+
+/* faq */
+.faq { display: grid; grid-template-columns: .8fr 1.2fr; gap: 56px; }
+.faq > * { min-width: 0; }
+.faq h2 { font-size: clamp(34px, 4.6vw, 54px); }
+details { border-bottom: 1px solid var(--line); padding-block: 18px; }
+details:first-child { border-top: 1px solid var(--line); }
+summary { cursor: pointer; list-style: none; display: flex; justify-content: space-between; gap: 16px; font: 600 19px var(--display); }
+summary::-webkit-details-marker { display: none; }
+summary::after { content: "+"; font: 500 24px/1 var(--mono); color: var(--gold); transition: transform .2s; }
+details[open] summary::after { transform: rotate(45deg); }
+details p { color: var(--muted); padding-top: 10px; max-width: 62ch; }
+@media (max-width: 900px) { .faq { grid-template-columns: 1fr; gap: 28px; } }
+
+/* order: the receipt */
+.order { background: var(--green); color: var(--on-green); }
+.order-grid { display: grid; grid-template-columns: 1fr 420px; gap: 56px; align-items: center; }
+.order-grid > * { min-width: 0; }
+.order h2 { font-size: clamp(36px, 5vw, 60px); margin: 12px 0 18px; }
+.order .lede { color: var(--on-green); opacity: .8; }
+.order .eyebrow { color: var(--gold-hi); }
+.receipt { background: #fffdf8; color: #1d1d1b; padding: 30px 26px 34px; font-family: var(--mono); font-size: 14px; box-shadow: 0 30px 60px -24px rgba(0,0,0,.55);
+  -webkit-mask: radial-gradient(circle at 8px 100%, transparent 7px, #000 7.5px) 0 100% / 16px 100% repeat-x;
+          mask: radial-gradient(circle at 8px 100%, transparent 7px, #000 7.5px) 0 100% / 16px 100% repeat-x; }
+.receipt h3 { font: 700 15px var(--mono); letter-spacing: .14em; text-align: center; text-transform: uppercase; }
+.receipt .rule { border-top: 2px dashed #c9c6bb; margin: 16px 0; }
+.receipt label { display: grid; gap: 6px; font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: #5c5a52; margin-bottom: 14px; }
+.receipt input, .receipt select { font: 500 16px var(--body); color: #1d1d1b; background: #f4f1e8; border: 1px solid #ddd8c9; border-radius: 8px; padding: 11px 12px; width: 100%; }
+.receipt .line { display: flex; justify-content: space-between; padding: 3px 0; }
+.receipt .total { font-weight: 700; font-size: 16px; }
+.receipt button { width: 100%; justify-content: center; margin-top: 18px; background: #1d1d1b; color: #fffdf8; }
+.done { display: grid; gap: 12px; }
+.done p { font-family: var(--body); font-size: 15px; }
+.done .btn { justify-content: center; background: #25d366; color: #052e14; }
+.done .copy { background: none; border: 1px solid #c9c6bb; color: #1d1d1b; margin: 0; }
+@media (max-width: 960px) { .order-grid { grid-template-columns: 1fr; } .receipt { max-width: 460px; } }
+
+footer { padding-block: 36px; font-size: 14px; color: var(--muted); }
+footer .wrap { display: flex; flex-wrap: wrap; gap: 12px 28px; justify-content: space-between; align-items: center; }
+footer .mark { font-size: 20px; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; }
+  html { scroll-behavior: auto; }
+}
+</style>
+</head>
+<body>
+
+<nav aria-label="Main">
+  <div class="wrap">
+    <a class="mark" href="#top">Vitrine<small>STUDIO</small></a>
+    <ul>
+      <li><a href="#work">Work</a></li>
+      <li><a href="#how">How it works</a></li>
+      <li><a href="#pricing">Pricing</a></li>
+      <li><a href="#faq">Questions</a></li>
+    </ul>
+    <a class="btn btn-gold" href="#order">Free preview</a>
+  </div>
+</nav>
+
+<header class="hero" id="top">
+  <div class="awning" aria-hidden="true"></div>
+  <div class="wrap hero-grid">
+    <div>
+      <p class="eyebrow">Websites for local shops</p>
+      <h1>Your door is open. Is your <em>website?</em></h1>
+      <p class="lede">Before people walk in, they look you up. We build your shop a fast, beautiful website that shows your hours, your phone and the way to your door. You see it finished before you pay anything.</p>
+      <div class="cta-row">
+        <a class="btn btn-gold" href="#order">See my website free</a>
+        <a class="btn btn-ghost" href="#work">Look at examples</a>
+      </div>
+      <p class="reassure">Ready in 48 hours · Works on every phone · No contract</p>
+    </div>
+    <div class="window">
+      <div class="sign" aria-hidden="true"><span>OPEN</span></div>
+      <div class="phone" role="img" aria-label="A sample shop website shown on a phone">
+        <div class="screen" id="screen"></div>
+      </div>
+      <div class="dots" id="dots" role="group" aria-label="Choose a sample"></div>
+    </div>
+  </div>
+</header>
+
+<section>
+  <div class="wrap search-grid">
+    <div>
+      <p class="eyebrow">Where customers decide</p>
+      <h2>They search your name. Then they choose.</h2>
+      <p class="lede">Someone hungry, or with a broken car, searches on their phone and goes where it's easy: the shop with its hours, a call button and a map. A shop with nothing to show gets skipped, even when it's the better one.</p>
+    </div>
+    <div class="serp" aria-label="Example search results">
+      <div class="q"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><span class="typed" id="typed">bakery open now near me</span></div>
+      <div class="result win">
+        <span class="tag">Has a website</span>
+        <small>aurorabakery.com</small>
+        <b>Aurora Bakery: fresh bread from 6:30</b>
+        <div class="acts"><span>Call</span><span>WhatsApp</span><span>Directions</span></div>
+      </div>
+      <div class="result lose">
+        <span class="tag">No website</span>
+        <b>Corner Bakery</b>
+        <p>No hours listed. No photos. No way to know if it's open.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="band" id="work">
+  <div class="wrap">
+    <div class="head">
+      <p class="eyebrow">Work</p>
+      <h2>Made for the shop, not from a template</h2>
+      <p class="lede">Every site gets the colors, words and details of its own trade. Tap one to see it on the phone above.</p>
+    </div>
+    <div class="samples" id="samples"></div>
+    <p class="note">Sample designs that show our style. Your site is built around your shop.</p>
+  </div>
+</section>
+
+<section id="how">
+  <div class="wrap">
+    <div class="head">
+      <p class="eyebrow">How it works</p>
+      <h2>See it first. Pay only if you love it.</h2>
+    </div>
+    <div class="steps">
+      <div class="step"><h3>We build your preview</h3><p>Send us your shop's name. Within 48 hours you get a link to your finished website, free.</p></div>
+      <div class="step"><h3>You tell us what to change</h3><p>Different photo, new price, other colors? Send it on WhatsApp and we update it. Changes are included.</p></div>
+      <div class="step"><h3>It goes live</h3><p>Pay once and your site goes online at your own address, like <b>yourshop.com</b>, and shows up when people search.</p></div>
+    </div>
+  </div>
+</section>
+
+<section class="band" id="pricing">
+  <div class="wrap">
+    <div class="head">
+      <p class="eyebrow">Pricing</p>
+      <h2>One price. No surprises.</h2>
+      <p class="lede">Pay once for the website. Hosting and your address cost nothing extra for the first year.</p>
+    </div>
+    <div class="prices">
+      <div class="price">
+        <h3>Starter</h3>
+        <div class="amount">$290<small> once</small></div>
+        <p>Everything a small shop needs to be found.</p>
+        <ul>
+          <li>One-page website</li><li>Call, WhatsApp and directions buttons</li><li>Opening hours and map</li><li>Your own address for a year</li>
+        </ul>
+        <a class="btn btn-line" href="#order" data-plan="Starter">Choose Starter</a>
+      </div>
+      <div class="price pick">
+        <span class="ribbon">Most shops pick this</span>
+        <h3>Shop</h3>
+        <div class="amount">$590<small> once</small></div>
+        <p>For shops that want to show what they sell.</p>
+        <ul>
+          <li>Everything in Starter</li><li>Up to 5 pages: menu, services, prices</li><li>Photo gallery</li><li>Google Maps listing set up</li><li>Two rounds of changes after launch</li>
+        </ul>
+        <a class="btn btn-gold" href="#order" data-plan="Shop">Choose Shop</a>
+      </div>
+      <div class="price">
+        <h3>Care</h3>
+        <div class="amount">$19<small> / month</small></div>
+        <p>Add to any plan. We keep everything up to date.</p>
+        <ul>
+          <li>Hosting and address every year</li><li>Changes any time on WhatsApp</li><li>New hours and holiday notices</li><li>Cancel any month</li>
+        </ul>
+        <a class="btn btn-line" href="#order" data-plan="Care">Add Care</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="faq">
+  <div class="wrap faq">
+    <div>
+      <p class="eyebrow">Questions</p>
+      <h2>What shop owners ask us</h2>
+    </div>
+    <div>
+      <details><summary>Is the preview really free?</summary><p>Yes. We build your website and send you the link. If you don't like it, you owe nothing and we delete it.</p></details>
+      <details><summary>I already have Instagram. Why a website?</summary><p>Instagram is great for photos, but people searching on Google or Maps find websites first. A website also works for people without Instagram, and nobody can take it away from you.</p></details>
+      <details><summary>Do I need to know anything about computers?</summary><p>No. We do everything. When you want a change, send a message on WhatsApp the way you would to a friend.</p></details>
+      <details><summary>Will it work on phones?</summary><p>It's built for phones first, because that's where most of your customers will see it. It also looks right on computers and tablets.</p></details>
+      <details><summary>How long does it take?</summary><p>Your preview is ready in 48 hours. After you say yes, it's live on your own address within a day or two.</p></details>
+      <details><summary>Is the website mine?</summary><p>Yes. The address is registered in your name, and if you ever leave we hand you every file.</p></details>
+    </div>
+  </div>
+</section>
+
+<section class="order" id="order">
+  <div class="wrap order-grid">
+    <div>
+      <p class="eyebrow">Free preview</p>
+      <h2>See your shop's website in 48 hours</h2>
+      <p class="lede">Tell us your shop's name and where it is. We'll build your website and send you the link on WhatsApp. No payment, no card, no commitment.</p>
+    </div>
+    <form class="receipt" id="form" novalidate>
+      <h3>Preview order</h3>
+      <div class="rule"></div>
+      <div id="fields">
+        <label for="f-shop">Shop name<input id="f-shop" name="shop" required placeholder="Aurora Bakery" autocomplete="organization"></label>
+        <label for="f-city">City<input id="f-city" name="city" required placeholder="Your city" autocomplete="address-level2"></label>
+        <label for="f-plan">Plan<select id="f-plan" name="plan"><option>Starter</option><option selected>Shop</option><option>Not sure yet</option></select></label>
+        <div class="rule"></div>
+        <div class="line"><span>Website preview</span><span>$0.00</span></div>
+        <div class="line"><span>Changes</span><span>$0.00</span></div>
+        <div class="line total"><span>Due today</span><span>$0.00</span></div>
+        <button class="btn" type="submit">Request my free preview</button>
+      </div>
+      <div class="done" id="done" hidden>
+        <p id="done-text"></p>
+        <a class="btn" id="wa" href="#" target="_blank" rel="noopener">Send on WhatsApp</a>
+        <button class="btn copy" type="button" id="copy">Copy message</button>
+      </div>
+    </form>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    <a class="mark" href="#top">Vitrine</a>
+    <span>Websites for local shops · <span id="wa-number">+00 00 00000-0000</span></span>
+    <span>© <span id="year">2026</span> Vitrine Studio</span>
+  </div>
+</footer>
+
+<script>
+// Your WhatsApp number, digits only with country code, e.g. "5551999990000".
+const WHATSAPP = "0000000000000";
+
+const SAMPLES = [
+  { kind: "Bakery", name: "Aurora Bakery", addr: "12 Market Street · Old Town", line: "Fresh bread out of the oven at 6:30.", c: "#b45309",
+    trade: "Bakery", detail: "Daily bake times", hours: [["Mon–Fri", "6:30–19:00"], ["Saturday", "7:00–14:00"], ["Sunday", "Closed"]],
+    extra: ["Today's bake", "Sourdough · Croissants · Cheese bread"] },
+  { kind: "Hair salon", name: "Lua Hair Studio", addr: "48 Garden Avenue · 1st floor", line: "Cuts, colour and calm. Book in a minute.", c: "#be185d",
+    trade: "Beauty", detail: "Booking on WhatsApp", hours: [["Tue–Fri", "9:00–20:00"], ["Saturday", "8:00–17:00"], ["Sun–Mon", "Closed"]],
+    extra: ["Popular", "Cut & finish · Colour · Treatments"] },
+  { kind: "Auto repair", name: "Prado Auto Repair", addr: "230 Industrial Road · Unit 4", line: "Honest repairs. Quote before we touch a bolt.", c: "#1d4ed8",
+    trade: "Workshop", detail: "Free quote first", hours: [["Mon–Fri", "8:00–18:00"], ["Saturday", "8:00–12:00"], ["Sunday", "Closed"]],
+    extra: ["We fix", "Brakes · Oil · Suspension · Diagnostics"] },
+];
+const esc = (s) => String(s).replace(/[&<>"]/g, (ch) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[ch]));
+
+function pageHTML(s) {
+  return `<div class="s-top"><small>${esc(s.kind)}</small><b>${esc(s.name)}</b><p>${esc(s.line)}</p>
+    <div class="s-btns"><i>Call</i><i>WhatsApp</i><i>Directions</i></div></div>
+    <div class="s-body">
+      <div class="s-card"><h4>${esc(s.extra[0])}</h4>${esc(s.extra[1])}</div>
+      <div class="s-card"><h4>Opening hours</h4>${s.hours.map(([d, t]) => `<div class="s-row"><span>${esc(d)}</span><span>${esc(t)}</span></div>`).join("")}</div>
+      <div class="s-card"><h4>Find us</h4>${esc(s.addr)}</div>
+      <div class="s-map"></div>
+    </div>`;
+}
+
+const screen = document.getElementById("screen");
+const dots = document.getElementById("dots");
+let current = -1, timer = null;
+const reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+function show(i) {
+  if (i === current) return;
+  const old = screen.querySelector(".page");
+  const page = document.createElement("div");
+  page.className = "page" + (old ? " out" : "");
+  page.style.setProperty("--c", SAMPLES[i].c);
+  page.innerHTML = pageHTML(SAMPLES[i]);
+  screen.appendChild(page);
+  if (old) {
+    requestAnimationFrame(() => requestAnimationFrame(() => { page.classList.remove("out"); old.classList.add("out"); }));
+    setTimeout(() => old.remove(), 550);
+  }
+  current = i;
+  dots.querySelectorAll("button").forEach((b, j) => b.setAttribute("aria-current", j === i));
+}
+function autoplay() {
+  clearInterval(timer);
+  if (!reduced) timer = setInterval(() => show((current + 1) % SAMPLES.length), 4200);
+}
+
+SAMPLES.forEach((s, i) => {
+  const dot = document.createElement("button");
+  dot.type = "button";
+  dot.setAttribute("aria-label", s.name);
+  dot.addEventListener("click", () => { show(i); autoplay(); });
+  dots.appendChild(dot);
+
+  const card = document.createElement("button");
+  card.type = "button";
+  card.className = "sample";
+  card.style.setProperty("--c", s.c);
+  card.innerHTML = `<div class="swatch"><small>${esc(s.trade)}</small><b>${esc(s.name)}</b></div>
+    <div class="meta"><span>${esc(s.line)}</span><em>${esc(s.detail)}</em></div>`;
+  card.addEventListener("click", () => { show(i); autoplay(); document.getElementById("top").scrollIntoView(); });
+  document.getElementById("samples").appendChild(card);
+});
+show(0);
+autoplay();
+
+// The search box types a few real searches people make.
+const searches = ["bakery open now near me", "hair salon booking today", "mechanic near me open saturday"];
+const typed = document.getElementById("typed");
+if (!reduced) {
+  let si = 0, ci = searches[0].length, deleting = true;
+  setTimeout(function tick() {
+    const word = searches[si];
+    ci += deleting ? -1 : 1;
+    typed.textContent = word.slice(0, ci);
+    if (deleting && ci === 0) { deleting = false; si = (si + 1) % searches.length; }
+    else if (!deleting && ci === searches[si].length) { deleting = true; return setTimeout(tick, 2600); }
+    setTimeout(tick, deleting ? 28 : 60);
+  }, 3000);
+}
+
+// Pricing buttons pick the plan in the order form.
+document.querySelectorAll("[data-plan]").forEach((a) => a.addEventListener("click", () => {
+  const plan = document.getElementById("f-plan");
+  if ([...plan.options].some((o) => o.text === a.dataset.plan)) plan.value = a.dataset.plan;
+}));
+
+// The order form writes the WhatsApp message; the visitor sends it.
+const form = document.getElementById("form");
+let message = "";
+form.addEventListener("submit", (e) => {
+  e.preventDefault();
+  const shop = form.shop.value.trim(), city = form.city.value.trim();
+  if (!shop || !city) { (shop ? form.city : form.shop).focus(); form.reportValidity(); return; }
+  message = `Hi Vitrine! I'd like a free website preview.\nShop: ${shop}\nCity: ${city}\nPlan: ${form.plan.value}`;
+  document.getElementById("wa").href = `https://wa.me/${WHATSAPP}?text=${encodeURIComponent(message)}`;
+  document.getElementById("done-text").textContent = `Your request for ${shop} is ready. Send it to us on WhatsApp and we'll start building.`;
+  document.getElementById("fields").hidden = true;
+  document.getElementById("done").hidden = false;
+});
+document.getElementById("copy").addEventListener("click", (e) => {
+  const btn = e.currentTarget;
+  navigator.clipboard.writeText(message)
+    .then(() => { btn.textContent = "Copied"; })
+    .catch(() => { btn.textContent = "Select and copy the text above"; document.getElementById("done-text").textContent = message; });
+});
+document.getElementById("wa-number").textContent = "+" + WHATSAPP;
+document.getElementById("year").textContent = new Date().getFullYear();
+</script>
+</body>
+</html>
