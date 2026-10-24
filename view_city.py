@@ -3,13 +3,16 @@
     python view_city.py                 # newest run in data/runs (follows it live)
     python view_city.py data/runs/XYZ   # a specific run
     python view_city.py --port 9000 --no-open
+    python view_city.py --phone         # also open it on your phone (same Wi-Fi)
 
-Serves viewer/ plus the run's files under /run/. Local only (127.0.0.1).
+Serves viewer/ plus the run's files under /run/. Local only (127.0.0.1), unless
+--phone: then any device on your home network can watch (read-only).
 Without a run folder argument, /run/ always points at the newest run, so you
 can start the viewer first and then `python run_city.py --delay 0.5`.
 """
 import argparse
 import http.server
+import socket
 import webbrowser
 from pathlib import Path
 
@@ -26,6 +29,16 @@ def latest_run(runs_dir=RUNS_DIR):
         return None
     runs = sorted(p for p in runs_dir.iterdir() if (p / "events.jsonl").exists())
     return runs[-1] if runs else None
+
+
+def lan_ip():
+    """This PC's address on the home network (no traffic is sent)."""
+    with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
+        try:
+            s.connect(("10.255.255.255", 1))
+            return s.getsockname()[0]
+        except OSError:
+            return "127.0.0.1"
 
 
 def make_handler(fixed_run=None):
@@ -61,16 +74,22 @@ def main():
     parser.add_argument("run", nargs="?", help="run folder (default: newest, followed live)")
     parser.add_argument("--port", type=int, default=8765)
     parser.add_argument("--no-open", action="store_true", help="don't open a browser tab")
+    parser.add_argument("--phone", action="store_true",
+                        help="let phones on the same Wi-Fi open the viewer too")
     args = parser.parse_args()
 
     fixed_run = Path(args.run).resolve() if args.run else None
     if fixed_run and not (fixed_run / "events.jsonl").exists():
         parser.error(f"{fixed_run} has no events.jsonl")
 
-    server = http.server.ThreadingHTTPServer(("127.0.0.1", args.port), make_handler(fixed_run))
+    host = "0.0.0.0" if args.phone else "127.0.0.1"
+    server = http.server.ThreadingHTTPServer((host, args.port), make_handler(fixed_run))
     url = f"http://127.0.0.1:{args.port}/"
     what = fixed_run.name if fixed_run else "newest run (live)"
     print(f"Zombiso AI City viewer: {url}  [{what}]  Ctrl+C to stop")
+    if args.phone:
+        print(f"On your phone (same Wi-Fi), open:  http://{lan_ip()}:{args.port}/")
+        print("If it doesn't load, allow Python through the Windows firewall (Private networks).")
     if not args.no_open:
         webbrowser.open(url)
     try:

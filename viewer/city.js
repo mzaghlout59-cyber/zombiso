@@ -938,10 +938,10 @@
 
   async function poll() {
     try {
-      const text = await getText("/run/events.jsonl");
+      const text = await getText("run/events.jsonl");
       $("empty").hidden = text != null;
       if (text != null) {
-        let m = await getJSON("/run/meta.json");
+        let m = await getJSON("run/meta.json");
         if (!m) { // runs from before meta.json existed: infer what we can
           const firstTick = text.split("\n").find((l) => l.includes('"kind": "tick"'));
           m = { run_id: "legacy", watchlist: firstTick ? Object.keys(JSON.parse(firstTick).prices) : [] };
@@ -954,8 +954,8 @@
           }
           indexEvents();
         }
-        if (!audit) audit = await getJSON("/run/audit.json");
-        trialScores = await getJSON("/trial/scores.json");
+        if (!audit) audit = await getJSON("run/audit.json");
+        trialScores = await getJSON("trial/scores.json");
       }
     } catch (err) {
       console.warn("poll failed", err);

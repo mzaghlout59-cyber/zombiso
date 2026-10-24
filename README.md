@@ -45,6 +45,7 @@ cp .env.example .env          # then fill in your keys (never commit .env)
 | `python market_day.py --check` | Test the Alpaca/Claude keys and show live prices |
 | `python market_day.py` | One real market session on real prices (paper only) |
 | `python view_city.py` | Open the viewer at http://127.0.0.1:8765/ |
+| `python view_city.py --phone` | Same, and prints a link your phone can open (same Wi-Fi) |
 | `python trial.py start` | Begin a paper trial (default 7 market days) |
 | `python trial.py` | Open the trial scorecard: pass/fail rules and each agent's accuracy |
 | `python -m pytest -q` | Run the test suite |
